@@ -43,7 +43,8 @@
 | [WBS / 역할 분담 및 일정표](05-management/wbs.md) | ⚠️ 노션 원문 비어 있음 (실제 WBS는 별도 공유 페이지) |
 | [Git 규칙 / 코드 컨벤션](05-management/git-convention.md) | 브랜치·커밋·PR 규칙, Java/JS 코드 컨벤션 |
 | [이슈관리](05-management/issues.md) | ⚠️ 현재 템플릿 예시 데이터만 있음 |
-| [회의록](05-management/meetings/README.md) | 11/02 ~ 11/10 회의 6건 |
+| [회의록](05-management/meetings/README.md) | 11/02 ~ 11/11 회의 7건 |
+| [Daily Scrum](05-management/daily-scrum/README.md) | 날짜별 팀원 스크럼 (11/11 ~ 11/20, 현재 항목 비어 있음) |
 
 ## 6. 시연 준비
 
