@@ -1,0 +1,25 @@
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+.vscode/
+out/
+
+# Backend (Gradle)
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+backend/src/main/resources/application-local.yml
+
+# Frontend (Next.js)
+node_modules/
+.next/
+.env
+.env.local
+.env.*.local
+npm-debug.log*
+
+# 다른 패키지 매니저 lock 파일 방지 (npm만 사용)
+yarn.lock
+pnpm-lock.yaml
