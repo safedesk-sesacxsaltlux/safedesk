@@ -31,8 +31,8 @@
 
 | 문서 | 내용 |
 | --- | --- |
-| [ERD / 물리 데이터 모델링](04-design/erd.md) | ⚠️ 아직 작성 전 (작성 안내만 있음) |
-| [API 명세서](04-design/api-spec.md) | API 16개 목록 · 도메인별 상세: [인증](04-design/api/auth.md), [정책](04-design/api/policy.md), [제재](04-design/api/sanction.md), [FAQ](04-design/api/faq.md) |
+| [ERD / 물리 데이터 모델링](04-design/erd.md) | 논리·물리 모델링 (⚠️ 노션에 이미지로만 있음) |
+| [API 명세서](04-design/api-spec.md) | API 45개 목록 · 도메인별 상세: [인증](04-design/api/auth.md), [정책](04-design/api/policy.md), [제재](04-design/api/sanction.md), [FAQ](04-design/api/faq.md), [상담·채팅](04-design/api/chat.md), [고객 상담](04-design/api/customer-chat.md), [폭언 감지](04-design/api/moderation.md), [이력·통계](04-design/api/history.md), [내부 연동](04-design/api/internal.md) |
 | [AI Agent 기능 기획서](04-design/ai-agent.md) | 1차 응대 / 폭언 분류 / 상담 요약 에이전트 |
 | [목업 데이터](04-design/mock-data.md) | FAQ 시드 데이터 명세 |
 

@@ -1,6 +1,6 @@
 # API 명세서 — FAQ
 
-> 출처: Notion 「API 명세서」 하위 행 API-ADM-08 ~ API-ADM-11 (마지막 수정: 2026-11-10)
+> 출처: Notion 「API 명세서」 하위 행 API-ADM-08 ~ API-ADM-11 (마지막 수정: 2026-11-11)
 
 [← API 명세서 목차](../api-spec.md)
 
@@ -8,8 +8,8 @@
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | API-ADM-08 | GET | `/api/admin/faqs` | FAQ 목록 조회 | 필요 (ADMIN) | 작성완료 | 장건웅 |  |
 | API-ADM-09 | POST | `/api/admin/faqs` | FAQ 등록 | 필요 (ADMIN) | 작성완료 | 장건웅 | could |
-| API-ADM-10 | PUT | `/api/admin/faqs/{faqId}` | FAQ 수정 | 필요 (ADMIN) | 작성완료 | 장건웅 |  |
-| API-ADM-11 | DELETE | `/api/admin/faqs/{faqId}` | FAQ 삭제 | 필요 (ADMIN) | 작성완료 | 장건웅 |  |
+| API-ADM-10 | PUT | `/api/admin/faqs/{faqId}` | FAQ 수정 | 필요 (ADMIN) | 작성완료 | 장건웅 | could |
+| API-ADM-11 | DELETE | `/api/admin/faqs/{faqId}` | FAQ 삭제 | 필요 (ADMIN) | 작성완료 | 장건웅 | could |
 
 ---
 
