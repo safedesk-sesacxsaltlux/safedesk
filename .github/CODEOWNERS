@@ -1,22 +1,66 @@
-# 공통 파일 담당자 (노션 「Git 규칙 / 코드 컨벤션」 공통 파일 관리 표 기준)
+# 담당자 지정 (노션 「Git 규칙 / 코드 컨벤션」 담당 영역·공통 파일 관리 표 기준)
 # 각 줄의 @github-id를 실제 GitHub 아이디로 바꾼 뒤 주석(#)을 해제하세요.
-# 경로는 실제 패키지·폴더 구조가 정해지면 맞춰 수정합니다.
+# 한 파일에 여러 줄이 매칭되면 "가장 아래 줄"이 적용됩니다. 넓은 경로를 위에, 좁은 경로를 아래에 둡니다.
 
-# 공통 UI·전역 CSS — 장건웅
+# ───────────── Backend (com.safedesk) ─────────────
+
+# 공통 응답·예외·설정, DB 스키마 — 유능한
+# /backend/src/main/java/com/safedesk/common/       @github-id
+# /backend/src/main/resources/db/                   @github-id
+# /backend/build.gradle                             @github-id
+# /backend/src/main/resources/application.yml       @github-id
+
+# 회원·인증(JWT·Security)·관리자 — 장건웅
+# /backend/src/main/java/com/safedesk/auth/         @github-id
+# /backend/src/main/java/com/safedesk/member/       @github-id
+# /backend/src/main/java/com/safedesk/admin/        @github-id
+
+# FAQ Mock 응대·상담원 이관 요청 — 심소민
+# /backend/src/main/java/com/safedesk/faq/          @github-id
+
+# 상담 세션·대기열·WebSocket·메시지 — 정혜영
+# /backend/src/main/java/com/safedesk/chat/         @github-id
+
+# 폭언 감지·마스킹·경고 — 한수민
+# /backend/src/main/java/com/safedesk/moderation/   @github-id
+
+# 자동 종료·이용정지 제재 — 한수민
+# /backend/src/main/java/com/safedesk/sanction/     @github-id
+
+# 상담 이력·통계 대시보드 — 유능한
+# /backend/src/main/java/com/safedesk/history/      @github-id
+# /backend/src/main/java/com/safedesk/dashboard/    @github-id
+
+# ───────────── Frontend (Next.js App Router) ─────────────
+
+# 공통 UI·전역 CSS·레이아웃 — 장건웅
+# /frontend/app/_components/                        @github-id
 # /frontend/app/globals.css                         @github-id
+# /frontend/app/layout.js                           @github-id
 
-# 인증·권한 — 장건웅
-# /backend/src/main/java/com/example/project/auth/   @github-id
+# 로그인·회원가입 — 장건웅
+# /frontend/app/login/                              @github-id
+# /frontend/app/signup/                             @github-id
 
-# WebSocket·상담 상태 — 정혜영
-# /backend/src/main/java/com/example/project/chat/   @github-id
+# 고객 화면(메인·Mock AI 채팅·대기·상담·종료) — 심소민
+# /frontend/app/customer/                           @github-id
 
-# 폭언 감지·제재 정책 — 한수민
-# /backend/src/main/java/com/example/project/moderation/  @github-id
+# 상담원 콘솔(대기열·실시간 채팅) — 정혜영
+# /frontend/app/agent/                              @github-id
 
-# DB 스키마·공통 응답 형식 — 유능한
-# /backend/src/main/resources/db/                    @github-id
-# /backend/src/main/java/com/example/project/common/ @github-id
+# 관리자 화면(제재 관리·정책) — 장건웅
+# /frontend/app/admin/                              @github-id
+
+# 이용정지 안내 — 한수민
+# /frontend/app/customer/suspended/                 @github-id
+
+# 상담 이력·대시보드 화면 — 유능한
+# /frontend/app/admin/page.js                       @github-id
+# /frontend/app/admin/history/                      @github-id
+# /frontend/app/agent/history/                      @github-id
+# /frontend/app/customer/history/                   @github-id
+
+# ───────────── 배포·CI ─────────────
 
 # 배포 설정 — 유능한
-# /.github/workflows/                                @github-id
+# /.github/workflows/                               @github-id
