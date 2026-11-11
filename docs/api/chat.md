@@ -1,8 +1,6 @@
 # API 명세서 — 상담·채팅
 
-> 출처: Notion 「API 명세서」 하위 행 API-001 ~ API-008 (마지막 수정: 2026-11-11)
-
-[← API 명세서 목차](../api-spec.md)
+[← API 명세서 목차](README.md)
 
 | API ID | Method | URL | 기능명 | 분류 | 인증 | 상태 | 담당자 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -39,18 +37,6 @@
 | --- | --- | --- | --- |
 | Authorization | Bearer {accessToken} | Y | 상담원 계정 JWT |
 | Content-Type | application/json | N | GET 요청으로 별도 Body 없음 |
-
-### Path Variable
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 | - | - | - |
-
-### Query Parameter
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 | - | - | - |
 
 ### Request Body
 
@@ -143,12 +129,6 @@
 | 이름 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
 | chatId | Long | Y | 수락할 상담의 고유 번호 (`consultation_id`) |
-
-### Query Parameter
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 | - | - | - |
 
 ### Request Body
 
@@ -260,12 +240,6 @@
 | 이름 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
 | chatId | Long | Y | 조회할 상담 고유 번호 (`consultation_id`) |
-
-### Query Parameter
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 | - | - | - |
 
 ### Request Body
 
@@ -379,12 +353,6 @@
 | 이름 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
 | chatId | Long | Y | 메시지를 조회할 상담 고유 번호 (`consultation_id`) |
-
-### Query Parameter
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 | - | - | - |
 
 ### Request Body
 
@@ -526,12 +494,6 @@ WebSocket 연결 및 STOMP 메시지 전송 기준이다.
 | chatId | Long | Y | 메시지를 전송할 상담 고유 번호 (`consultation_id`) |
 
 ※ REST URL의 Path Variable이 아니라 STOMP destination 경로에 포함되는 값이다.
-
-### Query Parameter
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 | - | - | - |
 
 ### Request Body
 
@@ -690,12 +652,6 @@ WebSocket/STOMP 메시지 처리에는 REST API의 HTTP 상태 코드를 그대�
 | --- | --- | --- | --- |
 | chatId | Long | Y | 종료할 상담 고유 번호 (`consultation_id`) |
 
-### Query Parameter
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 | - | - | - |
-
 ### Request Body
 
 아래는 종료 사유를 전달하는 방식의 예시다. 실제 Request Body 구성은 팀에서 확정해야 한다.
@@ -830,12 +786,6 @@ WebSocket/STOMP 메시지 처리에는 REST API의 HTTP 상태 코드를 그대�
 | --- | --- | --- | --- |
 | chatId | Long | Y | 조회할 상담 고유 번호 (`consultation_id`) |
 
-### Query Parameter
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 | - | - | - |
-
 ### Request Body
 
 없음 (GET 요청)
@@ -957,18 +907,6 @@ WebSocket/STOMP 메시지 처리에는 REST API의 HTTP 상태 코드를 그대�
 | --- | --- | --- | --- |
 | Authorization | Bearer {accessToken} | Y | 상담원 계정 JWT |
 | Content-Type | application/json | N | GET 요청으로 별도 Body 없음 |
-
-### Path Variable
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 | - | - | - |
-
-### Query Parameter
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 | - | - | - |
 
 ### Request Body
 

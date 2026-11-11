@@ -1,8 +1,6 @@
 # API 명세서 — 상담 이력·통계
 
-> 출처: Notion 「API 명세서」 하위 행 HIS-01 ~ HIS-07 (마지막 수정: 2026-11-11)
-
-[← API 명세서 목차](../api-spec.md)
+[← API 명세서 목차](README.md)
 
 | API ID | Method | URL | 기능명 | 분류 | 인증 | 상태 | 담당자 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -37,12 +35,6 @@
 | --- | --- | --- | --- |
 | Authorization | Bearer {accessToken} | Y | JWT 인증 |
 
-### Path Variable
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 |  |  |  |
-
 ### Query Parameter
 
 | 이름 | 타입 | 필수 | 설명 |
@@ -50,10 +42,6 @@
 | type | String | N | ALL(기본), AI, AGENT |
 | page | Integer | N | 페이지 번호, 기본 0 |
 | size | Integer | N | 페이지 크기 1~50, 기본 20 |
-
-### Request Body
-
-없음
 
 ### Response Body
 
@@ -132,22 +120,6 @@
 | --- | --- | --- | --- |
 | Authorization | Bearer {accessToken} | Y | JWT 인증 |
 
-### Path Variable
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 |  |  |  |
-
-### Query Parameter
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 |  |  |  |
-
-### Request Body
-
-없음
-
 ### Response Body
 
 ```json
@@ -219,12 +191,6 @@
 | --- | --- | --- | --- |
 | Authorization | Bearer {accessToken} | Y | JWT 인증 |
 
-### Path Variable
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 |  |  |  |
-
 ### Query Parameter
 
 | 이름 | 타입 | 필수 | 설명 |
@@ -235,10 +201,6 @@
 | keyword | String | N | 고객 아이디 또는 상담번호(C-000123, 123 모두 허용) |
 | page | Integer | N | 기본 0 |
 | size | Integer | N | 기본 20 |
-
-### Request Body
-
-없음
 
 ### Response Body
 
@@ -326,12 +288,6 @@
 | --- | --- | --- | --- |
 | Authorization | Bearer {accessToken} | Y | JWT 인증 |
 
-### Path Variable
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 |  |  |  |
-
 ### Query Parameter
 
 | 이름 | 타입 | 필수 | 설명 |
@@ -342,10 +298,6 @@
 | status | String | N | ALL(기본), CLOSED, TERMINATED |
 | page | Integer | N | 기본 0 |
 | size | Integer | N | 기본 20 |
-
-### Request Body
-
-없음
 
 ### Response Body
 
@@ -416,12 +368,6 @@
 | --- | --- | --- | --- |
 | Authorization | Bearer {accessToken} | Y | JWT 인증 |
 
-### Path Variable
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 |  |  |  |
-
 ### Query Parameter
 
 | 이름 | 타입 | 필수 | 설명 |
@@ -434,10 +380,6 @@
 | keyword | String | N | 상담번호 또는 고객 아이디 |
 | page | Integer | N | 기본 0 |
 | size | Integer | N | 기본 20 |
-
-### Request Body
-
-없음
 
 ### Response Body
 
@@ -528,16 +470,6 @@
 | 이름 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
 | consultationId | Long | Y | 상담 ID |
-
-### Query Parameter
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 |  |  |  |
-
-### Request Body
-
-없음
 
 ### Response Body
 
@@ -642,21 +574,11 @@
 | --- | --- | --- | --- |
 | Authorization | Bearer {accessToken} | Y | JWT 인증 |
 
-### Path Variable
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 |  |  |  |
-
 ### Query Parameter
 
 | 이름 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
 | period | String | N | TODAY(기본), 7D, 30D. 오늘 포함 |
-
-### Request Body
-
-없음
 
 ### Response Body
 

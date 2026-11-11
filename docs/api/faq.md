@@ -1,8 +1,6 @@
 # API 명세서 — FAQ
 
-> 출처: Notion 「API 명세서」 하위 행 API-ADM-08 ~ API-ADM-11 (마지막 수정: 2026-11-11)
-
-[← API 명세서 목차](../api-spec.md)
+[← API 명세서 목차](README.md)
 
 | API ID | Method | URL | 기능명 | 인증 | 상태 | 담당자 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -35,12 +33,6 @@
 | --- | --- | --- | --- |
 | Authorization | Bearer {accessToken} | Y | ADMIN 계정 JWT |
 
-### Path Variable
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 |  |  |  |
-
 ### Query Parameter
 
 | 이름 | 타입 | 필수 | 설명 |
@@ -48,10 +40,6 @@
 | keyword | String | N | 질문·답변 부분 일치 검색 |
 | page | Integer | N | 기본 0 |
 | size | Integer | N | 기본 20 |
-
-### Request Body
-
-없음
 
 ### Response Body
 
@@ -117,18 +105,6 @@
 | --- | --- | --- | --- |
 | Authorization | Bearer {accessToken} | Y | ADMIN 계정 JWT |
 | Content-Type | application/json | Y | JSON 형식 요청 |
-
-### Path Variable
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 |  |  |  |
-
-### Query Parameter
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 |  |  |  |
 
 ### Request Body
 
@@ -213,12 +189,6 @@
 | --- | --- | --- | --- |
 | faqId | Long | Y | FAQ ID |
 
-### Query Parameter
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 |  |  |  |
-
 ### Request Body
 
 ```json
@@ -295,16 +265,6 @@
 | 이름 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
 | faqId | Long | Y | FAQ ID |
-
-### Query Parameter
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 |  |  |  |
-
-### Request Body
-
-없음
 
 ### Response Body
 
