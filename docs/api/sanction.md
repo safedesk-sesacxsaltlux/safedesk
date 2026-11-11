@@ -1,8 +1,6 @@
 # API 명세서 — 제재
 
-> 출처: Notion 「API 명세서」 하위 행 API-ADM-04 ~ API-ADM-07 (마지막 수정: 2026-11-10)
-
-[← API 명세서 목차](../api-spec.md)
+[← API 명세서 목차](README.md)
 
 | API ID | Method | URL | 기능명 | 인증 | 상태 | 담당자 |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -43,12 +41,6 @@
 | --- | --- | --- | --- |
 | Authorization | Bearer {accessToken} | Y | ADMIN 계정 JWT |
 
-### Path Variable
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 |  |  |  |
-
 ### Query Parameter
 
 | 이름 | 타입 | 필수 | 설명 |
@@ -58,10 +50,6 @@
 | durationDays | Integer | N | 제재 기간 필터 (예: 7, 30, 90) |
 | page | Integer | N | 기본 0 |
 | size | Integer | N | 기본 20 |
-
-### Request Body
-
-없음
 
 ### Response Body
 
@@ -137,16 +125,6 @@
 | 이름 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
 | sanctionId | Long | Y | 제재 ID |
-
-### Query Parameter
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 |  |  |  |
-
-### Request Body
-
-없음
 
 ### Response Body
 
@@ -249,12 +227,6 @@
 | --- | --- | --- | --- |
 | sanctionId | Long | Y | 제재 ID |
 
-### Query Parameter
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 |  |  |  |
-
 ### Request Body
 
 ```json
@@ -336,16 +308,6 @@
 | 이름 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
 | violationId | Long | Y | 위반 ID (API-ADM-05의 violations에서 받음) |
-
-### Query Parameter
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 |  |  |  |
-
-### Request Body
-
-없음
 
 ### Response Body
 

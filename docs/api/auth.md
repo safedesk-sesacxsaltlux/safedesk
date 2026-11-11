@@ -1,8 +1,6 @@
 # API 명세서 — 회원·인증
 
-> 출처: Notion 「API 명세서」 하위 행 API-AUTH-01 ~ API-AUTH-05 (마지막 수정: 2026-11-10)
-
-[← API 명세서 목차](../api-spec.md)
+[← API 명세서 목차](README.md)
 
 | API ID | Method | URL | 기능명 | 분류 | 인증 | 상태 | 담당자 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -35,18 +33,6 @@
 | 이름 | 값 | 필수 | 설명 |
 | --- | --- | --- | --- |
 | Content-Type | application/json | Y | JSON 형식 요청 |
-
-### Path Variable
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 |  |  |  |
-
-### Query Parameter
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 |  |  |  |
 
 ### Request Body
 
@@ -119,27 +105,11 @@
 | 관련 요구사항 | REQ-001 |
 | 설명 | 가입 전 아이디 사용 가능 여부를 알려준다. 가입 시(API-AUTH-01)에도 서버가 다시 검사한다. |
 
-### Request Header
-
-| 이름 | 값 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 |  |  |  |
-
-### Path Variable
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 |  |  |  |
-
 ### Query Parameter
 
 | 이름 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
 | loginId | String | Y | 확인할 아이디 |
-
-### Request Body
-
-없음
 
 ### Response Body
 
@@ -191,18 +161,6 @@
 | 이름 | 값 | 필수 | 설명 |
 | --- | --- | --- | --- |
 | Content-Type | application/json | Y | JSON 형식 요청 |
-
-### Path Variable
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 |  |  |  |
-
-### Query Parameter
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 |  |  |  |
 
 ### Request Body
 
@@ -276,22 +234,6 @@ JWT payload에는 sub(memberId), role, exp만 넣는다. 같은 토큰을 WebSoc
 | --- | --- | --- | --- |
 | Authorization | Bearer {accessToken} | Y | 로그인 시 발급받은 JWT |
 
-### Path Variable
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 |  |  |  |
-
-### Query Parameter
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 |  |  |  |
-
-### Request Body
-
-없음
-
 ### Response Body
 
 ```json
@@ -338,22 +280,6 @@ JWT payload에는 sub(memberId), role, exp만 넣는다. 같은 토큰을 WebSoc
 | 이름 | 값 | 필수 | 설명 |
 | --- | --- | --- | --- |
 | Authorization | Bearer {accessToken} | Y | 로그인 시 발급받은 JWT |
-
-### Path Variable
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 |  |  |  |
-
-### Query Parameter
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 |  |  |  |
-
-### Request Body
-
-없음
 
 ### Response Body
 

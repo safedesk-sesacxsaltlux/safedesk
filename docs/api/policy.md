@@ -1,8 +1,6 @@
 # API 명세서 — 정책
 
-> 출처: Notion 「API 명세서」 하위 행 API-ADM-01 ~ API-ADM-03 (마지막 수정: 2026-11-10)
-
-[← API 명세서 목차](../api-spec.md)
+[← API 명세서 목차](README.md)
 
 | API ID | Method | URL | 기능명 | 인증 | 상태 | 담당자 |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -33,22 +31,6 @@
 | 이름 | 값 | 필수 | 설명 |
 | --- | --- | --- | --- |
 | Authorization | Bearer {accessToken} | Y | ADMIN 계정 JWT |
-
-### Path Variable
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 |  |  |  |
-
-### Query Parameter
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 |  |  |  |
-
-### Request Body
-
-없음
 
 ### Response Body
 
@@ -120,18 +102,6 @@
 | --- | --- | --- | --- |
 | Authorization | Bearer {accessToken} | Y | ADMIN 계정 JWT |
 | Content-Type | application/json | Y | JSON 형식 요청 |
-
-### Path Variable
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 |  |  |  |
-
-### Query Parameter
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 |  |  |  |
 
 ### Request Body
 
@@ -210,22 +180,12 @@
 | --- | --- | --- | --- |
 | Authorization | Bearer {accessToken} | Y | ADMIN 계정 JWT |
 
-### Path Variable
-
-| 이름 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| 없음 |  |  |  |
-
 ### Query Parameter
 
 | 이름 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
 | page | Integer | N | 페이지 번호, 기본 0 |
 | size | Integer | N | 페이지 크기, 기본 20 |
-
-### Request Body
-
-없음
 
 ### Response Body
 

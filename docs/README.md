@@ -1,54 +1,17 @@
-# 프로젝트 문서
+# 개발 문서
 
-> 노션 「4팀」 페이지의 하위 문서를 마크다운으로 옮긴 것입니다. (변환일: 2026-11-11)
-> 원본은 노션이며, 노션 문서가 수정되면 이 폴더도 함께 갱신해야 합니다.
+> **개발 기준은 이 폴더다.** 노션은 기획·회의 기록으로만 남긴다. 값이 노션과 다르면 이 폴더를 따른다.
+> 2026-11-11 노션 문서를 개발에 필요한 내용만 남겨 다시 정리했다. 이전 변환본은 git 기록(`8f6b86e`, `c0e0e3f`)에 있다.
 
-## 1. 프로젝트 개요
-
-| 문서 | 내용 |
+| 문서 | 언제 보나 |
 | --- | --- |
-| [팀 소개](01-overview/team.md) | 역할·담당자·담당 내용 |
-| [프로젝트 개요서](01-overview/project-overview.md) | 기획 배경, 기대 효과, 주요 사용자, 핵심 기능 |
-| [유사 서비스 분석](01-overview/similar-services.md) | 유사 서비스 5개 비교와 차별화 방향 |
-| [개발 환경](01-overview/dev-environment.md) | 기술 스택·버전, 포트, 실행 방법, 환경 변수 |
+| [contract.md](contract.md) | 다른 담당자와 주고받는 값: 상태 enum, URL 규칙, 응답 형식, errorCode, 종료 처리, 내부 이벤트, WebSocket 메시지, 화면 라우트. **맨 위 「확정 필요」부터 본다** |
+| [policy.md](policy.md) | 동작 규칙과 숫자: 상태 전이, 폭언 2회 종료, 정지 7/30/90일, 권한표, 오류 문구, 요구사항 ID |
+| [api/](api/README.md) | API별 요청·응답·예외 상세 (45개) |
+| [checklist.md](checklist.md) | 완료 기준: 시연 흐름과 예외 상황 체크리스트. D4 연동, D6 통합 테스트, D7 리허설에 사용 |
 
-## 2. 요구사항 및 범위
+## 문서를 바꿀 때
 
-| 문서 | 내용 |
-| --- | --- |
-| [정책정의서](02-requirements/policy.md) | 회원, AI 상담, 상담 상태, 폭언, 제재, 권한, 예외 처리 정책 |
-| [요구사항 정의서](02-requirements/requirements.md) | 기능 REQ-001~033, 비기능 NFR-001~014, 모듈별 담당 |
-
-## 3. 화면 및 사용자 흐름
-
-| 문서 | 내용 |
-| --- | --- |
-| [사용자 시나리오](03-ux/user-scenarios.md) | 시나리오 1~19, 요구사항 연결표 |
-| [사용자 흐름도](03-ux/user-flow.md) | 기능별 처리 흐름, 화면 목록 SCR-001~019 |
-| [화면 설계서](03-ux/screen-design.md) | 화면별 상세(고객/상담사/관리자), 공통 모달·알림 |
-
-## 4. 데이터 및 API 설계
-
-| 문서 | 내용 |
-| --- | --- |
-| [ERD / 물리 데이터 모델링](04-design/erd.md) | 논리·물리 모델링 (⚠️ 노션에 이미지로만 있음) |
-| [API 명세서](04-design/api-spec.md) | API 45개 목록 · 도메인별 상세: [인증](04-design/api/auth.md), [정책](04-design/api/policy.md), [제재](04-design/api/sanction.md), [FAQ](04-design/api/faq.md), [상담·채팅](04-design/api/chat.md), [고객 상담](04-design/api/customer-chat.md), [폭언 감지](04-design/api/moderation.md), [이력·통계](04-design/api/history.md), [내부 연동](04-design/api/internal.md) |
-| [AI Agent 기능 기획서](04-design/ai-agent.md) | 1차 응대 / 폭언 분류 / 상담 요약 에이전트 |
-| [목업 데이터](04-design/mock-data.md) | FAQ 시드 데이터 명세 |
-
-## 5. 프로젝트 관리
-
-| 문서 | 내용 |
-| --- | --- |
-| [WBS / 역할 분담 및 일정표](05-management/wbs.md) | ⚠️ 노션 원문 비어 있음 (실제 WBS는 별도 공유 페이지) |
-| [Git 규칙 / 코드 컨벤션](05-management/git-convention.md) | 브랜치·커밋·PR 규칙, Java/JS 코드 컨벤션 |
-| [이슈관리](05-management/issues.md) | ⚠️ 현재 템플릿 예시 데이터만 있음 |
-| [회의록](05-management/meetings/README.md) | 11/02 ~ 11/11 회의 7건 |
-| [Daily Scrum](05-management/daily-scrum/README.md) | 날짜별 팀원 스크럼 (11/11 ~ 11/20, 현재 항목 비어 있음) |
-
-## 6. 시연 준비
-
-| 문서 | 내용 |
-| --- | --- |
-| [시연 시나리오](06-demo/demo-scenario.md) | ⚠️ 현재 템플릿 예시 내용 |
-| [발표 자료 / 발표 영상](06-demo/presentation.md) | ⚠️ 노션 원문 비어 있음 |
+- 코드와 같은 PR에서 문서도 고친다. 리뷰어가 둘을 같이 본다.
+- `contract.md`의 값, 다른 사람 API 문서는 혼자 바꾸지 않는다. 「확정 필요」에 올리고 Daily Scrum에서 정한다.
+- 역할 분담·일정·진행 상태는 노션 WBS와 GitHub Issues에서 관리한다. 여기 두지 않는다.
