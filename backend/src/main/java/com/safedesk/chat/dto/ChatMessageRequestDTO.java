@@ -2,19 +2,10 @@ package com.safedesk.chat.dto;
 
 public class ChatMessageRequestDTO {
 
-    private long consultationId;
     private String senderType;
     private long senderId;
     private String messageContent;
     private String abuseStatus;
-
-    public long getConsultationId() {
-        return consultationId;
-    }
-
-    public void setConsultationId(long consultationId) {
-        this.consultationId = consultationId;
-    }
 
     public String getSenderType() {
         return senderType;

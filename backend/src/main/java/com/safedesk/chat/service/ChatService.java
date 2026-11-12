@@ -57,7 +57,7 @@ public class ChatService {
         this.consultationRepository = consultationRepository;
     }
 
-    public void sendMessage(ChatMessageRequestDTO message) {
+    public void sendMessage(long consultationId, ChatMessageRequestDTO message) {
 
         Message chatMessage = new Message();
 
@@ -66,12 +66,12 @@ public class ChatService {
         chatMessage.setContent(message.getMessageContent());
         chatMessage.setSenderType(message.getSenderType());
         chatMessage.setSenderId(message.getSenderId());
-        chatMessage.setConsultationId(message.getConsultationId());
+        chatMessage.setConsultationId(consultationId);
 
         messageRepository.save(chatMessage);
 
         simpMessagingTemplate.convertAndSend(
-            "/topic/chats/" + message.getConsultationId(),
+            "/topic/chats/" + consultationId,
             message
         );
 
