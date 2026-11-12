@@ -29,15 +29,16 @@ public class ChatService {
             ChatQueueResponseDTO chatQueueResponseDTO = new ChatQueueResponseDTO();
 
             chatQueueResponseDTO.setConsultationId(consultation.getConsultationId());
-
             chatQueueResponseDTO.setCustomerId(String.valueOf(consultation.getCustomerId()));
-
             chatQueueResponseDTO.setConsultationStatus(consultation.getStatus());
-
             chatQueueResponseDTO.setQueuedAt(consultation.getQueuedAt());
 
-            chatQueueResponseDTO.setWaitingTime(
-                Duration.between(consultation.getQueuedAt(), LocalDateTime.now()).getSeconds());
+            if (consultation.getQueuedAt() == null) {
+                chatQueueResponseDTO.setWaitingTime(0);
+            } else {
+                chatQueueResponseDTO.setWaitingTime(
+                    Duration.between(consultation.getQueuedAt(), LocalDateTime.now()).getSeconds());
+            }
 
             queueList.add(chatQueueResponseDTO);
 
