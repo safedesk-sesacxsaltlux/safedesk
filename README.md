@@ -26,6 +26,12 @@ FAQ 기반 Mock AI가 1차 응대하고, 상담원 연결 후 WebSocket 실시�
 ### 1. MySQL
 
 MySQL 서버 실행 후 `backend/src/main/resources/db/schema.sql`을 실행합니다.
+DB(`safedesk`) 생성, 테이블, 시드 데이터(계정·FAQ·금칙어·정책 기본값·샘플 상담)가 한 번에 들어갑니다.
+
+- Workbench: File → Open SQL Script → `schema.sql` → 실행(⚡)
+- 터미널(PowerShell): `& "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u root -p -e "source backend/src/main/resources/db/schema.sql"`
+
+> 다시 실행하면 테이블을 지우고 다시 만듭니다. 로컬에서 넣은 데이터는 사라집니다.
 
 ### 2. Backend
 
