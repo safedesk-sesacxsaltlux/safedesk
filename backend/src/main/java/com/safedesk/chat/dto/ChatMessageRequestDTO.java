@@ -4,7 +4,7 @@ public class ChatMessageRequestDTO {
 
     private long consultationId;
     private String senderType;
-    private long senderMemberId;
+    private long senderId;
     private String messageContent;
     private String abuseStatus;
 
@@ -24,12 +24,12 @@ public class ChatMessageRequestDTO {
         this.senderType = senderType;
     }
 
-    public long getSenderMemberId() {
-        return senderMemberId;
+    public long getSenderId() {
+        return senderId;
     }
 
-    public void setSenderMemberId(long senderMemberId) {
-        this.senderMemberId = senderMemberId;
+    public void setSenderId(long senderId) {
+        this.senderId = senderId;
     }
 
     public String getMessageContent() {
