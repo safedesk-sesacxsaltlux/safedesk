@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -39,16 +40,25 @@ public class MockAiGateway implements AiGateway {
 
     private String callMock(AiReplyRequest request) {
         return switch (mode) {
-            case NORMAL -> "[목업] " + request.content() + "에 대한 답변입니다.";   // 문자열만!
+            case NORMAL -> {
+                sleep(ThreadLocalRandom.current().nextLong(500, 1001));   // 진짜 AI처럼 0.5~1초 뒤 답변
+                yield "[목업] " + request.content() + "에 대한 답변입니다.";
+            }
             case DELAY -> {
-                try {
-                    Thread.sleep(timeoutMs + 1000);
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);   // 바깥 reply()의 catch(Exception)이 잡아줌
-                }
+                sleep(timeoutMs + 1000);    // 제한 시간보다 오래 걸리게 해서 TIMEOUT 유도
                 yield "늦은 답변";              // { } 블록 안에서 값을 돌려줄 땐 return 대신 yield
             }
             case ERROR -> throw new RuntimeException("AI 호출 중 에러가 발생했습니다");
         };
+    }
+
+    // NORMAL·DELAY가 같이 쓰는 잠자기. 깨워지면 예외로 바꿔서 바깥 reply()의 catch(Exception)이 잡게 한다
+    private void sleep(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();   // "깨워졌다"는 표시를 지우지 않고 남겨 둠
+            throw new RuntimeException(e);
+        }
     }
 }
