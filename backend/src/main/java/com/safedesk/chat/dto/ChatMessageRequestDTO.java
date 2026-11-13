@@ -3,7 +3,7 @@ package com.safedesk.chat.dto;
 public class ChatMessageRequestDTO {
 
     private String senderType;
-    private long senderId;
+    private Long senderId;
     private String messageContent;
     private String abuseStatus;
 
@@ -15,11 +15,11 @@ public class ChatMessageRequestDTO {
         this.senderType = senderType;
     }
 
-    public long getSenderId() {
+    public Long getSenderId() {
         return senderId;
     }
 
-    public void setSenderId(long senderId) {
+    public void setSenderId(Long senderId) {
         this.senderId = senderId;
     }
 

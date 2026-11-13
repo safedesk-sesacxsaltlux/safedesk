@@ -114,4 +114,42 @@ public class Consultation {
     public Long getAgentId() {
         return agentId;
     }
+
+    // AI 상담을 상담원에게 넘기기 위해 대기열에 등록하는 메서드
+    public void handoff() {
+        if(!"AI_CHAT".equals(this.status)) {
+            throw new IllegalStateException("AI 상담 중에만 상담원 연결을 요청할 수 있습니다.");
+        }
+        this.status = "QUEUED";
+        this.queuedAt = LocalDateTime.now();
+    }
+
+    public void accept(Long agentId) {
+        if(!"QUEUED".equals(this.status)) {
+            throw new IllegalStateException("이미 다른 상담원이 수락한 상담이거나 대기 중인 상담이 아닙니다.");
+        }
+        this.status = "IN_PROGRESS";
+        this.agentId = agentId;
+        this.acceptedAt = LocalDateTime.now();
+    }
+
+    public void close(String closedBy, String closeReason) {
+        if("CLOSED".equals(this.status) || "TERMINATED".equals(this.status)) {
+            throw new IllegalStateException("이미 종료된 상담입니다.");
+        }
+        this.status = "CLOSED";
+        this.closedAt = LocalDateTime.now();
+        this.closedBy = closedBy;
+        this.closeReason = closeReason;
+    }
+
+    public void terminate(String closedBy, String closeReason) {
+        if(!"IN_PROGRESS".equals(this.status)) {
+            throw new IllegalStateException("진행 중인 상담만 강제 종료할 수 있습니다.");
+        }
+        this.status = "TERMINATED";
+        this.closedAt = LocalDateTime.now();
+        this.closedBy = closedBy;
+        this.closeReason = closeReason;
+    }
 }

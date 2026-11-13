@@ -28,8 +28,8 @@ public class Message {
     @Column(name="consultation_id", nullable = false)
     private long consultationId;
 
-    @Column(name="sender_id", nullable = false)
-    private long senderId;
+    @Column(name="sender_id", nullable = true)
+    private Long senderId;
 
     public long getMessageId() {
         return messageId;
@@ -55,7 +55,7 @@ public class Message {
         return consultationId;
     }
 
-    public long getSenderId() {
+    public Long getSenderId() {
         return senderId;
     }
 
@@ -79,7 +79,7 @@ public class Message {
         this.consultationId = consultationId;
     }
 
-    public void setSenderId(long senderId) {
+    public void setSenderId(Long senderId) {
         this.senderId = senderId;
     }
 }
