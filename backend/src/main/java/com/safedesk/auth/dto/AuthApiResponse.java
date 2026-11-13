@@ -16,6 +16,10 @@ public class AuthApiResponse<T> {
         return new AuthApiResponse<>(true, message, data);
     }
 
+    public static <T> AuthApiResponse<T> fail(String message) {
+        return new AuthApiResponse<>(false, message, null);
+    }
+
     public boolean isSuccess() {
         return success;
     }

@@ -33,10 +33,23 @@ public class Member {
     @Column(name = "status", nullable = false, length = 20)
     private String status;
 
-    @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     protected Member() {
+    }
+
+    private Member(String loginId, String password, String name, String role, String status) {
+        this.loginId = loginId;
+        this.password = password;
+        this.name = name;
+        this.role = role;
+        this.status = status;
+        this.createdAt = LocalDateTime.now().withNano(0);
+    }
+
+    public static Member createCustomer(String loginId, String encodedPassword, String name) {
+        return new Member(loginId, encodedPassword, name, "CUSTOMER", "ACTIVE");
     }
 
     public Long getMemberId() {
