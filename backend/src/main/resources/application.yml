@@ -15,3 +15,8 @@ spring:
 
 jwt:
   secret: ${JWT_SECRET}
+
+ai:
+  timeout-ms: 10000
+  mock:
+    mode: NORMAL
