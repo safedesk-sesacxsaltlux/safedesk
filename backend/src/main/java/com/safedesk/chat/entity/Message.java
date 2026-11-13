@@ -1,9 +1,6 @@
 package com.safedesk.chat.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
 
@@ -13,6 +10,7 @@ public class Message {
 
     @Id
     @Column(name="message_id")
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long messageId;
 
     @Column(name="content", nullable = false, columnDefinition = "TEXT")
@@ -32,4 +30,56 @@ public class Message {
 
     @Column(name="sender_id", nullable = false)
     private long senderId;
+
+    public long getMessageId() {
+        return messageId;
+    }
+
+    public String getContent() {
+        return content;
+    }
+
+    public String getSenderType() {
+        return senderType;
+    }
+
+    public String getAbuseStatus() {
+        return abuseStatus;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public long getConsultationId() {
+        return consultationId;
+    }
+
+    public long getSenderId() {
+        return senderId;
+    }
+
+    public void setContent(String content) {
+        this.content = content;
+    }
+
+    public void setSenderType(String senderType) {
+        this.senderType = senderType;
+    }
+
+    public void setAbuseStatus(String abuseStatus) {
+        this.abuseStatus = abuseStatus;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public void setConsultationId(long consultationId) {
+        this.consultationId = consultationId;
+    }
+
+    public void setSenderId(long senderId) {
+        this.senderId = senderId;
+    }
 }
