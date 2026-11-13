@@ -6,16 +6,20 @@ import com.safedesk.chat.entity.Consultation;
 import org.springframework.stereotype.Service;
 import com.safedesk.chat.repository.MessageRepository;
 import com.safedesk.chat.repository.ConsultationRepository;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import com.safedesk.chat.entity.Message;
 
 @Service
 public class ChatService {
 
     private final MessageRepository messageRepository;
+
+    private final SimpMessagingTemplate simpMessagingTemplate;
 
     private final ConsultationRepository consultationRepository;
 
@@ -47,12 +51,31 @@ public class ChatService {
         return queueList;
     }
 
-    public void sendMessage(ChatMessageRequestDTO message) {
-
+    public ChatService(MessageRepository messageRepository, SimpMessagingTemplate simpMessagingTemplate, ConsultationRepository consultationRepository) {
+        this.messageRepository = messageRepository;
+        this.simpMessagingTemplate = simpMessagingTemplate;
+        this.consultationRepository = consultationRepository;
     }
 
-    public ChatService(MessageRepository messageRepository, ConsultationRepository consultationRepository) {
-        this.messageRepository = messageRepository;
-        this.consultationRepository = consultationRepository;
+    public void sendMessage(long consultationId, ChatMessageRequestDTO message) {
+
+        Message chatMessage = new Message();
+
+        chatMessage.setCreatedAt(LocalDateTime.now());
+
+        chatMessage.setContent(message.getMessageContent());
+        chatMessage.setSenderType(message.getSenderType());
+        chatMessage.setSenderId(message.getSenderId());
+        chatMessage.setConsultationId(consultationId);
+
+        messageRepository.save(chatMessage);
+
+        simpMessagingTemplate.convertAndSend(
+            "/topic/chats/" + consultationId,
+            message
+        );
+
+
+
     }
 }
