@@ -1,8 +1,11 @@
 package com.safedesk.auth.service;
 
 import com.safedesk.auth.dto.CheckLoginIdResponseDTO;
+import com.safedesk.auth.dto.LoginRequestDTO;
+import com.safedesk.auth.dto.LoginResponseDTO;
 import com.safedesk.auth.dto.SignupRequestDTO;
 import com.safedesk.auth.dto.SignupResponseDTO;
+import com.safedesk.auth.jwt.JwtProvider;
 import com.safedesk.common.exception.BusinessException;
 import com.safedesk.common.exception.ErrorCode;
 import com.safedesk.member.entity.Member;
@@ -17,10 +20,12 @@ public class AuthService {
 
     private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtProvider jwtProvider;
 
-    public AuthService(MemberRepository memberRepository, PasswordEncoder passwordEncoder) {
+    public AuthService(MemberRepository memberRepository, PasswordEncoder passwordEncoder, JwtProvider jwtProvider) {
         this.memberRepository = memberRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jwtProvider = jwtProvider;
     }
 
     @Transactional(readOnly = true)
@@ -54,5 +59,25 @@ public class AuthService {
         } catch (DataIntegrityViolationException e) {
             throw new BusinessException(ErrorCode.DUPLICATE_LOGIN_ID);
         }
+    }
+
+    // 확인 순서: 회원 조회 → 비밀번호 → 상태.
+    // 아이디가 없을 때와 비밀번호가 틀릴 때 같은 응답을 주고, 상태는 비밀번호가 맞을 때만 알려준다.
+    // (비밀번호를 모르는 사람이 아이디 존재 여부나 계정 상태를 알아낼 수 없게 하기 위함)
+    @Transactional(readOnly = true)
+    public LoginResponseDTO login(LoginRequestDTO request) {
+        Member member = memberRepository.findByLoginId(request.getLoginId())
+            .orElseThrow(() -> new BusinessException(ErrorCode.LOGIN_FAILED));
+
+        if (!passwordEncoder.matches(request.getPassword(), member.getPassword())) {
+            throw new BusinessException(ErrorCode.LOGIN_FAILED);
+        }
+
+        if (!"ACTIVE".equals(member.getStatus())) {
+            throw new BusinessException(ErrorCode.MEMBER_INACTIVE);
+        }
+
+        String accessToken = jwtProvider.createToken(member.getMemberId(), member.getRole());
+        return LoginResponseDTO.of(accessToken, jwtProvider.getExpirationSeconds(), member);
     }
 }
