@@ -4,15 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PublicHeader } from "../_components/Headers";
+import { HOME_BY_ROLE, saveLogin } from "../_lib/auth";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-
-// 로그인 후 권한별 첫 화면 (auth.md API-AUTH-03)
-const HOME_BY_ROLE = {
-  CUSTOMER: "/customer",
-  AGENT: "/agent",
-  ADMIN: "/admin",
-};
 
 export default function LoginPage() {
   const router = useRouter();
@@ -51,8 +45,7 @@ export default function LoginPage() {
       }
 
       const { accessToken, member } = body.data;
-      localStorage.setItem("accessToken", accessToken);
-      localStorage.setItem("member", JSON.stringify(member));
+      saveLogin(accessToken, member);
       router.push(HOME_BY_ROLE[member.role] ?? "/");
     } catch {
       setSubmitError("서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.");
