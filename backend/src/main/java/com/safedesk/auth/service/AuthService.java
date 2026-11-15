@@ -3,6 +3,7 @@ package com.safedesk.auth.service;
 import com.safedesk.auth.dto.CheckLoginIdResponseDTO;
 import com.safedesk.auth.dto.LoginRequestDTO;
 import com.safedesk.auth.dto.LoginResponseDTO;
+import com.safedesk.auth.dto.MemberInfoDTO;
 import com.safedesk.auth.dto.SignupRequestDTO;
 import com.safedesk.auth.dto.SignupResponseDTO;
 import com.safedesk.auth.jwt.JwtProvider;
@@ -79,5 +80,13 @@ public class AuthService {
 
         String accessToken = jwtProvider.createToken(member.getMemberId(), member.getRole());
         return LoginResponseDTO.of(accessToken, jwtProvider.getExpirationSeconds(), member);
+    }
+
+    // 토큰은 유효하지만 그 사이 회원이 삭제된 경우도 로그인이 필요한 상태로 본다.
+    @Transactional(readOnly = true)
+    public MemberInfoDTO getMe(Long memberId) {
+        Member member = memberRepository.findById(memberId)
+            .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
+        return MemberInfoDTO.from(member);
     }
 }
