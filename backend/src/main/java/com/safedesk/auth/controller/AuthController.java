@@ -1,6 +1,8 @@
 package com.safedesk.auth.controller;
 
 import com.safedesk.auth.dto.CheckLoginIdResponseDTO;
+import com.safedesk.auth.dto.LoginRequestDTO;
+import com.safedesk.auth.dto.LoginResponseDTO;
 import com.safedesk.auth.dto.SignupRequestDTO;
 import com.safedesk.auth.dto.SignupResponseDTO;
 import com.safedesk.auth.service.AuthService;
@@ -36,5 +38,11 @@ public class AuthController {
         SignupResponseDTO result = authService.signup(request);
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(ApiResponse.success(result, "회원가입이 완료되었습니다."));
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<ApiResponse<LoginResponseDTO>> login(@Valid @RequestBody LoginRequestDTO request) {
+        LoginResponseDTO result = authService.login(request);
+        return ResponseEntity.ok(ApiResponse.success(result, "로그인되었습니다."));
     }
 }
