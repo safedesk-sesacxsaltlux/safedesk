@@ -7,6 +7,7 @@ import com.safedesk.common.exception.BusinessException;
 import com.safedesk.common.exception.ErrorCode;
 import com.safedesk.member.entity.Member;
 import com.safedesk.member.repository.MemberRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,7 +46,13 @@ public class AuthService {
 
         String encodedPassword = passwordEncoder.encode(request.getPassword());
         Member member = Member.createCustomer(request.getLoginId(), encodedPassword, request.getName().trim());
-        Member saved = memberRepository.save(member);
-        return SignupResponseDTO.from(saved);
+        // 중복 확인과 저장 사이에 같은 아이디로 동시 가입하면 DB 유니크 제약(uk_member_login_id)에 걸린다.
+        // save()는 커밋 시점에 INSERT하므로 여기서 잡으려면 saveAndFlush()로 즉시 실행해야 한다.
+        try {
+            Member saved = memberRepository.saveAndFlush(member);
+            return SignupResponseDTO.from(saved);
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(ErrorCode.DUPLICATE_LOGIN_ID);
+        }
     }
 }
