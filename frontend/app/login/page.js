@@ -1,14 +1,75 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { PublicHeader } from "../_components/Headers";
 
-export const metadata = { title: "로그인 · SafeDesk" };
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+// 로그인 후 권한별 첫 화면 (auth.md API-AUTH-03)
+const HOME_BY_ROLE = {
+  CUSTOMER: "/customer",
+  AGENT: "/agent",
+  ADMIN: "/admin",
+};
 
 export default function LoginPage() {
+  const router = useRouter();
+  const [form, setForm] = useState({ loginId: "", password: "" });
+  const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  function handleChange(e) {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+    setSubmitError("");
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setSubmitted(true);
+    setSubmitError("");
+
+    if (!form.loginId.trim() || !form.password) return;
+
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          loginId: form.loginId.trim(),
+          password: form.password,
+        }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok || !body?.success) {
+        setSubmitError(body?.message ?? "로그인에 실패했습니다.");
+        return;
+      }
+
+      const { accessToken, member } = body.data;
+      localStorage.setItem("accessToken", accessToken);
+      localStorage.setItem("member", JSON.stringify(member));
+      router.push(HOME_BY_ROLE[member.role] ?? "/");
+    } catch {
+      setSubmitError("서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const loginIdEmpty = submitted && !form.loginId.trim();
+  const passwordEmpty = submitted && !form.password;
+
   return (
     <>
+      <title>로그인 · SafeDesk</title>
       <PublicHeader />
       <main className="center-page">
-        <div className="auth-card">
+        <form className="auth-card" onSubmit={handleSubmit} noValidate>
           <div className="stack gap-8">
             <h1>로그인</h1>
             <p className="muted small">
@@ -19,36 +80,58 @@ export default function LoginPage() {
 
           <div className="field">
             <label htmlFor="lg-id">아이디</label>
-            <input id="lg-id" className="input" type="text" placeholder="아이디를 입력하세요" />
+            <input
+              id="lg-id"
+              name="loginId"
+              className={`input${loginIdEmpty ? " err" : ""}`}
+              type="text"
+              placeholder="아이디를 입력하세요"
+              autoComplete="username"
+              value={form.loginId}
+              onChange={handleChange}
+            />
+            {loginIdEmpty && (
+              <span className="msg-err">아이디를 입력해주세요.</span>
+            )}
           </div>
           <div className="field">
             <label htmlFor="lg-pw">비밀번호</label>
-            <input id="lg-pw" className="input err" type="password" placeholder="비밀번호를 입력하세요" />
-            <span className="msg-err">
-              아이디 또는 비밀번호가 일치하지 않습니다. (로그인 실패 상태)
-            </span>
+            <input
+              id="lg-pw"
+              name="password"
+              className={`input${passwordEmpty || submitError ? " err" : ""}`}
+              type="password"
+              placeholder="비밀번호를 입력하세요"
+              autoComplete="current-password"
+              value={form.password}
+              onChange={handleChange}
+            />
+            {passwordEmpty && (
+              <span className="msg-err">비밀번호를 입력해주세요.</span>
+            )}
+            {submitError && <span className="msg-err">{submitError}</span>}
           </div>
 
-          <Link href="/customer" className="btn btn-primary btn-lg">
-            로그인
-          </Link>
-          <div className="small muted" style={{ display: "flex", justifyContent: "center", gap: 6, fontSize: 14 }}>
+          <button
+            type="submit"
+            className="btn btn-primary btn-lg"
+            disabled={submitting}
+          >
+            {submitting ? "로그인 중..." : "로그인"}
+          </button>
+          <div
+            className="small muted"
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              gap: 6,
+              fontSize: 14,
+            }}
+          >
             <span>처음 이용하시나요?</span>
             <Link href="/signup">회원가입</Link>
           </div>
-
-          <div className="stack gap-12" style={{ borderTop: "1px solid var(--line)", paddingTop: 16 }}>
-            <span className="small muted">시연용 바로가기 (권한별 이동 결과)</span>
-            <div className="demo-links">
-              <Link href="/customer" className="btn">고객</Link>
-              <Link href="/agent" className="btn">상담원</Link>
-              <Link href="/admin" className="btn">관리자</Link>
-            </div>
-            <span className="small muted" style={{ fontSize: 12 }}>
-              상담원 · 관리자 계정은 사전에 등록된 계정을 사용합니다.
-            </span>
-          </div>
-        </div>
+        </form>
       </main>
     </>
   );

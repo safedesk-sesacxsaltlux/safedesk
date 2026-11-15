@@ -433,8 +433,6 @@ tr.hl td { background: #f3f6fd; }
   gap: 18px;
 }
 .auth-card h1 { font-size: 26px; }
-.demo-links { display: flex; gap: 8px; flex-wrap: wrap; }
-.demo-links a { flex: 1 1 100px; min-height: 44px; font-size: 14px; }
 .agree-box {
   display: flex;
   gap: 10px;
