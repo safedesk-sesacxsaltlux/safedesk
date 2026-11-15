@@ -3,6 +3,8 @@ package com.safedesk.auth.service;
 import com.safedesk.auth.dto.CheckLoginIdResponseDTO;
 import com.safedesk.auth.dto.SignupRequestDTO;
 import com.safedesk.auth.dto.SignupResponseDTO;
+import com.safedesk.common.exception.BusinessException;
+import com.safedesk.common.exception.ErrorCode;
 import com.safedesk.member.entity.Member;
 import com.safedesk.member.repository.MemberRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -30,15 +32,15 @@ public class AuthService {
     public SignupResponseDTO signup(SignupRequestDTO request) {
 
         if (!request.isPolicyAgreed()) {
-            throw new IllegalArgumentException("상담원 보호 정책에 동의해주세요.");
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "상담원 보호 정책에 동의해주세요.");
         }
 
         if (!request.getPassword().equals(request.getPasswordConfirm())) {
-            throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "비밀번호가 일치하지 않습니다.");
         }
 
         if (memberRepository.existsByLoginId(request.getLoginId())) {
-            throw new IllegalStateException("이미 사용 중인 아이디입니다.");
+            throw new BusinessException(ErrorCode.DUPLICATE_LOGIN_ID);
         }
 
         String encodedPassword = passwordEncoder.encode(request.getPassword());
