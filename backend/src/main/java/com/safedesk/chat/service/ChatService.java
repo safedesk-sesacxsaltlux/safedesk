@@ -8,6 +8,8 @@ import com.safedesk.chat.entity.Consultation;
 import com.safedesk.common.exception.BusinessException;
 import com.safedesk.common.exception.ErrorCode;
 import com.safedesk.moderation.dto.AbuseFilterResult;
+import com.safedesk.moderation.dto.WarningIssuedMessage;
+import com.safedesk.moderation.entity.AbuseLog;
 import com.safedesk.moderation.service.ModerationService;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
@@ -110,13 +112,23 @@ public class ChatService {
 
         Message saved = messageRepository.save(chatMessage);
 
-        if (shouldModerate && result.detected()) {
-            moderationService.saveOriginal(saved.getMessageId(), consultationId, original);
-        }
+        String topic = "/topic/chats/" + consultationId;
 
-        sendAfterCommit("/topic/chats/" + consultationId,
-            ChatMessageResponseDTO.from(saved)
-        );
+        sendAfterCommit(topic, ChatMessageResponseDTO.from(saved));
+
+        if (shouldModerate && result.detected()) {
+            AbuseLog abuseLog = moderationService.saveOriginal(saved.getMessageId(), consultationId, original);
+
+            // 자동 경고 (MOD-02). 중복·종료된 상담이면 empty 라서 아무것도 하지 않는다
+            moderationService.applyAutoWarning(consultationId, abuseLog.getAbuseLogId())
+                .ifPresent(warning -> {
+                    // 종료 기준에 도달한 폭언(기본 2회째)에는 경고 대신 종료 알림만 가야 한다
+                    if (!warning.shouldTerminate()) {
+                        sendAfterCommit(topic, WarningIssuedMessage.from(warning));
+                    }
+                    // TODO(MOD-03): shouldTerminate 면 terminateForAbuse() 호출. 종료 알림은 MOD-03 이 보낸다
+                });
+        }
     }
 
     // 커밋된 뒤에만 발행한다. 저장 중 예외로 롤백되면 발행하지 않는다 (원문 노출 없이 전송 보류, moderation.md)
