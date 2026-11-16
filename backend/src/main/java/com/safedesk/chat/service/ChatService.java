@@ -1,13 +1,14 @@
 
 package com.safedesk.chat.service;
 
-import com.safedesk.chat.dto.ChatMessageRequestDTO;
-import com.safedesk.chat.dto.ChatQueueResponseDTO;
+import com.safedesk.chat.dto.*;
 import com.safedesk.chat.entity.CloseReason;
 import com.safedesk.chat.entity.ClosedBy;
 import com.safedesk.chat.entity.Consultation;
 import com.safedesk.common.exception.BusinessException;
 import com.safedesk.common.exception.ErrorCode;
+import com.safedesk.moderation.dto.AbuseFilterResult;
+import com.safedesk.moderation.service.ModerationService;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 import com.safedesk.chat.repository.MessageRepository;
@@ -20,10 +21,11 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+
 import com.safedesk.chat.entity.Message;
-import com.safedesk.chat.dto.ChatAcceptResponseDTO;
-import com.safedesk.chat.dto.ChatCloseResponseDTO;
 import com.safedesk.chat.entity.ConsultationStatus;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 public class ChatService {
@@ -35,6 +37,8 @@ public class ChatService {
     private final ConsultationRepository consultationRepository;
 
     private final ApplicationEventPublisher eventPublisher;
+
+    private final ModerationService moderationService;
 
     public List<ChatQueueResponseDTO> getQueueList() {
 
@@ -63,30 +67,70 @@ public class ChatService {
         return queueList;
     }
 
-    public ChatService(MessageRepository messageRepository, SimpMessagingTemplate simpMessagingTemplate, ConsultationRepository consultationRepository, ApplicationEventPublisher eventPublisher) {
+    public ChatService(
+        MessageRepository messageRepository, SimpMessagingTemplate simpMessagingTemplate,
+        ConsultationRepository consultationRepository, ApplicationEventPublisher eventPublisher,
+        ModerationService moderationService) {
         this.messageRepository = messageRepository;
         this.simpMessagingTemplate = simpMessagingTemplate;
         this.consultationRepository = consultationRepository;
         this.eventPublisher = eventPublisher;
+        this.moderationService = moderationService;
     }
 
+    @Transactional
     public void sendMessage(long consultationId, ChatMessageRequestDTO message) {
+
+        Consultation consultation = consultationRepository.findById(consultationId)
+            .orElseThrow(() -> new BusinessException(ErrorCode.CHAT_NOT_FOUND));
+
+        boolean shouldModerate = ConsultationStatus.IN_PROGRESS.equals(consultation.getStatus())
+            && "CUSTOMER".equals(message.getSenderType());
+        // 로그인(#24) 전이라 임시로 DTO 의 senderType 으로 판단
+        // 로그인이 들어오면 로그인 토큰 기준으로 바꾸기
+        // AI 상담 중 메시지·상담원 메시지는 검사하지 않는다 (정책 4장, 체크리스트 E11)
 
         Message chatMessage = new Message();
 
         chatMessage.setCreatedAt(LocalDateTime.now());
 
-        chatMessage.setContent(message.getMessageContent());
+        String original = message.getMessageContent();
+        AbuseFilterResult result = null;
+
+        if (shouldModerate) {
+            result = moderationService.processMessage(original);
+            chatMessage.setContent(result.maskedContent());
+            chatMessage.setAbuseStatus(result.abuseStatus().name());
+        } else {
+            chatMessage.setContent(original);
+        }
         chatMessage.setSenderType(message.getSenderType());
         chatMessage.setSenderId(message.getSenderId());
         chatMessage.setConsultationId(consultationId);
 
-        messageRepository.save(chatMessage);
+        Message saved = messageRepository.save(chatMessage);
 
-        simpMessagingTemplate.convertAndSend(
-            "/topic/chats/" + consultationId,
-            message
+        if (shouldModerate && result.detected()) {
+            moderationService.saveOriginal(saved.getMessageId(), consultationId, original);
+        }
+
+        sendAfterCommit("/topic/chats/" + consultationId,
+            ChatMessageResponseDTO.from(saved)
         );
+    }
+
+    // 커밋된 뒤에만 발행한다. 저장 중 예외로 롤백되면 발행하지 않는다 (원문 노출 없이 전송 보류, moderation.md)
+    private void sendAfterCommit(String destination, Object payload) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    simpMessagingTemplate.convertAndSend(destination, payload);
+                }
+            });
+        } else {
+            simpMessagingTemplate.convertAndSend(destination, payload);   // 트랜잭션 없는 단위 테스트용
+        }
     }
 
     @Transactional
