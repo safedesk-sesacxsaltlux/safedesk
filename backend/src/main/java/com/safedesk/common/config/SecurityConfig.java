@@ -48,6 +48,8 @@ public class SecurityConfig {
                 // 위에서부터 처음 맞는 규칙이 적용되므로, 인증이 필요한 /api/auth 경로를 /api/auth/** 보다 먼저 둔다.
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/me", "/api/auth/logout").authenticated()
+                        // HIS-06 상담 상세: 로그인만 확인 (토큰 없으면 401). 본인 상담인지는 서비스에서 확인
+                        .requestMatchers("/api/v1/consultations/*/history").authenticated()
 
                         // TODO(인증): API별 서버 권한 검사. docs/api 명세의 "인증" 열 기준으로 작성함.
                         //  주석 해제 전 확인할 것
