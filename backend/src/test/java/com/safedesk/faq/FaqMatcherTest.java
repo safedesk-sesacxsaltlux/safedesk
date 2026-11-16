@@ -52,6 +52,7 @@ class FaqMatcherTest {
         assertThat(result).isPresent();
         assertThat(result.get().faqId()).isEqualTo(1L);
         assertThat(result.get().category()).isEqualTo("상하수도");
+        assertThat(result.get().question()).isEqualTo("question-1");
         assertThat(result.get().answer()).isEqualTo("answer-1");
     }
 
@@ -97,6 +98,6 @@ class FaqMatcherTest {
     }
 
     private static FaqKeywordRow row(Long faqId, String category, String keyword) {
-        return new FaqKeywordRow(faqId, category, "answer-" + faqId, keyword);
+        return new FaqKeywordRow(faqId, category, "question-" + faqId, "answer-" + faqId, keyword);
     }
 }

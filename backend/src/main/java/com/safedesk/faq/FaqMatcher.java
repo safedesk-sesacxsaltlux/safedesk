@@ -51,8 +51,8 @@ public class FaqMatcher {
             }
             scores.merge(
                     row.faqId(),
-                    new FaqMatch(row.faqId(), row.category(), row.answer(), keyword.length()),
-                    (prev, add) -> new FaqMatch(prev.faqId(), prev.category(), prev.answer(), prev.score() + add.score()));
+                    new FaqMatch(row.faqId(), row.category(), row.question(), row.answer(), keyword.length()),
+                    (prev, add) -> new FaqMatch(prev.faqId(), prev.category(), prev.question(), prev.answer(), prev.score() + add.score()));
         }
 
         return scores.values().stream()
