@@ -37,7 +37,9 @@ public enum ErrorCode {
     AGENT_BUSY(HttpStatus.CONFLICT, "진행 중인 상담을 먼저 종료해주세요."),
     AGENT_RECOVERING(HttpStatus.CONFLICT, "휴식 시간입니다. 잠시 후 수락해주세요."),
     CHAT_NOT_ACTIVE(HttpStatus.CONFLICT, "상담원과 상담 중인 상담이 아닙니다."),
-    CHAT_CLOSED(HttpStatus.CONFLICT, "종료된 상담입니다.");
+    CHAT_CLOSED(HttpStatus.CONFLICT, "종료된 상담입니다."),
+    // HIS-06: 아직 종료되지 않은 상담을 이력 상세로 열려고 할 때 (409)
+    CHAT_NOT_CLOSED(HttpStatus.CONFLICT, "진행 중인 상담입니다. 상담 화면에서 확인해주세요.");
 
     private final HttpStatus status;
     private final String message;
