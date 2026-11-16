@@ -33,6 +33,28 @@ DB(`safedesk`) 생성, 테이블, 시드 데이터(계정·FAQ·금칙어·정�
 
 > 다시 실행하면 테이블을 지우고 다시 만듭니다. 로컬에서 넣은 데이터는 사라집니다.
 
+#### 이미 DB를 만든 경우: 추가된 테이블만 만들기
+
+`schema.sql`에 테이블이 추가되면 서버가 시작되지 않습니다(`ddl-auto: validate`). 데이터를 유지하려면 추가된 테이블만 실행합니다.
+
+- `refresh_token` (리프레시 토큰, docs/api/auth.md 토큰 정책)
+
+```sql
+USE safedesk;
+CREATE TABLE `refresh_token` (
+  `refresh_token_id` bigint NOT NULL AUTO_INCREMENT COMMENT '리프레시 토큰 ID',
+  `member_id` bigint NOT NULL COMMENT '회원 ID',
+  `token_hash` varchar(64) NOT NULL COMMENT '리프레시 토큰 SHA-256 해시',
+  `expires_at` datetime NOT NULL COMMENT '만료 일시',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '발급 일시',
+  PRIMARY KEY (`refresh_token_id`),
+  UNIQUE KEY `uk_refresh_token_hash` (`token_hash`),
+  KEY `ix_refresh_token_member` (`member_id`),
+  KEY `ix_refresh_token_expires_at` (`expires_at`),
+  CONSTRAINT `fk_refresh_token_member` FOREIGN KEY (`member_id`) REFERENCES `member` (`member_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='리프레시 토큰';
+```
+
 ### 2. Backend
 
 환경변수를 설정합니다. (IntelliJ 실행 구성의 Environment variables 또는 시스템 환경변수)
@@ -41,7 +63,7 @@ DB(`safedesk`) 생성, 테이블, 시드 데이터(계정·FAQ·금칙어·정�
 | --- | --- |
 | `DB_USERNAME` | MySQL 계정 |
 | `DB_PASSWORD` | MySQL 비밀번호 |
-| `JWT_SECRET` | JWT 서명 키 |
+| `JWT_SECRET` | JWT 서명 키. **32자 이상** (짧거나 없으면 서버가 시작되지 않음) |
 
 ```
 cd backend
