@@ -2,7 +2,7 @@ package com.safedesk.auth.dto;
 
 import com.safedesk.member.entity.Member;
 
-// 로그인 응답의 member, 내 정보 조회(/api/auth/me) 응답에서 함께 쓰는 회원 정보
+// 로그인 응답의 member와 /api/auth/me 응답에서 함께 쓴다.
 public class MemberInfoDTO {
 
     private final Long memberId;
