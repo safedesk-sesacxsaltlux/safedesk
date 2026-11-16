@@ -30,40 +30,39 @@
 | 담당자 | 한수민 |
 | 상태 | 작성완료 |
 | 우선순위 | Must |
-| 설명 | 고객 메시지를 금칙어 및 정규식으로 검사하여 NORMAL 또는 ABUSIVE로 분류한다. 폭언으로 판정된 표현은 마스킹하고 원문은 별도로 보관한다. |
+| 설명 | 고객 메시지를 금칙어로 검사하여 NORMAL 또는 ABUSIVE로 분류한다. 폭언으로 판정된 표현은 마스킹하고 원문은 별도로 보관한다. |
 
 ### 요청
 
-**내부 메서드 입력 예시**
+판정과 원문 저장을 두 메서드로 나눈다. `abuse_log`에는 `message_id`가 필요한데, 이 값은 메시지를 저장한 뒤에야 생기기 때문이다.
 
 ```java
-ModerationResult processMessage(
-    Long consultationId,
-    Long senderId,
-    String content
-);
+// ① 판정. 메시지 저장 「전」에 호출
+AbuseFilterResult processMessage(String content);
+
+// ② 원문 저장. 메시지 저장 「뒤」, ABUSIVE일 때만 호출
+AbuseLog saveOriginal(long messageId, long consultationId, String originalContent);
 ```
 
 | 필드 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
-| consultationId | Long | Y | 상담 ID |
-| senderId | Long | Y | 고객 회원 ID |
 | content | String | Y | 고객 메시지 원문 |
+| messageId | long | Y | 저장된 메시지 ID |
+| consultationId | long | Y | 상담 ID |
+| originalContent | String | Y | 폭언 원문 |
+
+상담 상태와 발신자 확인은 호출하는 쪽(`ChatService.sendMessage()`)이 한다. 필터는 문장만 본다.
 
 ### 응답
+
+`processMessage()`는 `AbuseFilterResult`를 돌려준다.
 
 **NORMAL**
 
 ```json
 {
-  "success": true,
-  "data": {
-    "consultationId": 101,
-    "abuseStatus": "NORMAL",
-    "maskedContent": "환불 처리가 언제 되나요?",
-    "detected": false
-  },
-  "message": "메시지 검사가 완료되었습니다."
+  "abuseStatus": "NORMAL",
+  "maskedContent": "환불 처리가 언제 되나요?"
 }
 ```
 
@@ -71,63 +70,61 @@ ModerationResult processMessage(
 
 ```json
 {
-  "success": true,
-  "data": {
-    "consultationId": 101,
-    "abuseStatus": "ABUSIVE",
-    "maskedContent": "상담원 진짜 ***하네",
-    "detected": true
-  },
-  "message": "폭언이 감지되었습니다."
+  "abuseStatus": "ABUSIVE",
+  "maskedContent": "상담원 진짜 ***하네"
 }
 ```
+
+| 필드 | 설명 |
+| --- | --- |
+| abuseStatus | `NORMAL` 또는 `ABUSIVE` |
+| maskedContent | NORMAL이면 원문 그대로, ABUSIVE이면 금칙어 구간만 `***`로 바꾼 문장 |
+
+`detected()`는 `abuseStatus == ABUSIVE`이면 true다. `saveOriginal()`은 저장된 `AbuseLog`를 돌려주고, MOD-02가 그 ID로 경고를 연결한다.
 
 위 응답은 내부 결과 DTO를 설명하기 위한 JSON 표현이다. 외부 REST 응답은 아니다.
 
 ### 처리 순서
 
-1. WebSocket에서 고객 메시지를 수신한다.
-2. 상담 상태가 ACTIVE인지 확인한다.
-3. 발신자가 해당 상담의 고객인지 확인한다.
-4. 메시지를 정규화한다.
-5. `banned_word` 테이블의 금칙어를 검사한다.
-6. 정규식으로 띄어쓰기·특수문자·초성 변형을 검사한다.
-7. 인용·신고 등 오탐 가능 문맥을 확인한다.
-8. NORMAL 또는 ABUSIVE로 판정한다.
-9. NORMAL은 원문을 `message.content`에 저장한다.
-10. ABUSIVE는 마스킹된 문장을 `message.content`에 저장하고 원문을 `abuse_log.original_content`에 저장한다.
-11. 상담원에게 마스킹된 메시지를 전달한다.
-12. ABUSIVE이면 MOD-02를 실행한다.
+`ChatService.sendMessage()` 한 트랜잭션 안에서 실행한다.
+
+1. 상담을 조회한다. 없으면 `CHAT_NOT_FOUND`.
+2. 상담이 `IN_PROGRESS`이고 고객이 보낸 메시지일 때만 검사한다. AI 상담 중 메시지와 상담원 메시지는 검사하지 않고 `abuse_status`를 NULL로 둔다 (정책 4장, 체크리스트 E11).
+3. 메시지를 정규화한다. 공백·특수문자를 지우고 영문은 소문자로 바꾼다 (「시 발」, 「ㅆ!발」 대응). 원문 위치는 따로 기록해 둔다.
+4. 메모리에 캐싱한 금칙어(`banned_word`)가 정규화 문장에 있는지 찾는다.
+5. 오탐 예외 표현(「다시 발송」, 「시발점」, 「질병 신고」 등) 안에 완전히 들어간 금칙어는 무시한다.
+6. 금칙어가 남아 있으면 ABUSIVE, 없으면 NORMAL로 판정한다. ABUSIVE는 겹치는 구간을 합친 뒤 원문 기준으로 `***` 치환한다.
+7. `message.content`에 마스킹본(NORMAL은 원문)을, `message.abuse_status`에 판정 결과를 저장한다.
+8. ABUSIVE이면 원문을 `abuse_log.original_content`에 저장한다.
+9. ABUSIVE이면 MOD-02를 실행한다.
+10. 트랜잭션이 커밋된 뒤 `/topic/chats/{consultationId}`로 저장된 메시지(`MESSAGE`)를 발행한다. 원문 필드는 없다.
 
 ### 예외 상황
 
 | 상황 | errorCode | 처리 |
 | --- | --- | --- |
-| 빈 메시지 | INVALID_MESSAGE | 전송 거부 |
-| 상담 없음 | CONSULTATION_NOT_FOUND | 처리 중단 |
-| 상담 진행 중 아님 | CHAT_NOT_ACTIVE | 전송 거부 |
-| 고객 불일치 | FORBIDDEN_CUSTOMER | 접근 거부 |
-| 금칙어 조회 실패 | MODERATION_UNAVAILABLE | 원문 노출 없이 전송 보류 |
-| 메시지 중복 수신 | DUPLICATE_MESSAGE | 중복 처리 방지 |
-| 저장 실패 | MESSAGE_SAVE_FAILED | 트랜잭션 롤백 |
+| 상담 없음 | CHAT_NOT_FOUND | 처리 중단 |
+| 빈 메시지 | - | 필터는 NORMAL로 돌려준다. 빈 메시지 거부는 호출부 책임 |
+| 금칙어 적재 실패 | - | 앱 시작 시 적재하며, 실패하면 앱이 뜨지 않는다. 금칙어 없이 상담이 열리면 원문이 그대로 노출되기 때문이다 |
+| 필터·저장 중 예외 | - | 트랜잭션 롤백. 커밋 후 발행이므로 메시지가 저장·발행되지 않는다 (원문 노출 없이 전송 보류) |
 
 ### DB 연동
 
 | 테이블 | 컬럼 | 작업 |
 | --- | --- | --- |
-| consultation | consultation_id, status, customer_id | SELECT |
-| banned_word | word | SELECT |
-| message | content, abuse_status, consultation_id, sender_id | INSERT |
-| abuse_log | original_content, message_id, consultation_id | INSERT |
+| consultation | consultation_id, status | SELECT |
+| banned_word | word | SELECT (앱 시작 시 한 번, 메모리 캐싱) |
+| message | content, abuse_status, consultation_id, sender_type, sender_id | INSERT |
+| abuse_log | message_id, consultation_id, original_content | INSERT |
 
 ### 설계 이유
 
 - 서버에서 검사하여 클라이언트 우회를 방지한다.
-- 상담원에게 폭언 원문을 노출하지 않는다.
+- 상담원에게 폭언 원문을 노출하지 않는다. 발행하는 메시지는 클라이언트가 보낸 요청이 아니라 저장된 마스킹본이다.
 - 원문과 마스킹 메시지를 분리해 관리자 확인과 상담원 보호를 동시에 지원한다.
-- DB 금칙어와 정규식을 함께 사용하여 변형 표현을 감지한다.
-- 단순 항의나 인용 표현의 오탐을 줄이기 위한 예외 규칙을 둔다.
-- 폭언 감지 실패 시 원문이 상담원에게 그대로 전달되지 않도록 한다.
+- 정규화로 띄어쓰기·특수문자 변형을 잡고, 금칙어는 메모리에 두어 메시지마다 DB를 조회하지 않는다 (NFR-007 전달 지연 1초 이내).
+- 정규화로 생기는 오탐(「다시 발송」 → 「다시발송」)은 예외 표현으로 막는다.
+- 커밋 후 발행하여, 폭언 감지 실패 시 원문이 상담원에게 그대로 전달되지 않도록 한다.
 
 ---
 
@@ -152,65 +149,77 @@ ModerationResult processMessage(
 ### 요청
 
 ```java
-WarningResult applyAutoWarning(
-    Long consultationId,
-    Long abuseLogId
+Optional<WarningResult> applyAutoWarning(
+    long consultationId,
+    long abuseLogId
 );
 ```
 
 | 필드 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
-| consultationId | Long | Y | 상담 ID |
-| abuseLogId | Long | Y | 폭언 기록 ID |
+| consultationId | long | Y | 상담 ID |
+| abuseLogId | long | Y | 폭언 기록 ID (MOD-01 `saveOriginal()`이 돌려준 `AbuseLog`의 ID) |
+
+`ChatService.sendMessage()`가 MOD-01 원문 저장 뒤에 같은 트랜잭션 안에서 호출한다.
 
 ### 응답
 
 ```json
 {
-  "success": true,
-  "data": {
-    "consultationId": 101,
-    "warningId": 501,
-    "warningType": "AUTO",
-    "warningCount": 1,
-    "closeThreshold": 2,
-    "shouldTerminate": false
-  },
-  "message": "자동 경고가 기록되었습니다."
+  "consultationId": 101,
+  "warningId": 501,
+  "warningCount": 1,
+  "closeThreshold": 2,
+  "shouldTerminate": false
 }
 ```
 
+| 필드 | 설명 |
+| --- | --- |
+| warningCount | 이 상담의 경고 횟수. 방금 저장한 경고를 포함하고, AUTO와 MANUAL을 모두 센다 (정책 4장) |
+| closeThreshold | 상담에 적용된 정책의 자동 종료 기준 |
+| shouldTerminate | `warningCount >= closeThreshold`. true이면 MOD-03 대상 |
+
+경고를 만들지 않은 경우(중복 경고, 진행 중이 아닌 상담)에는 `Optional.empty()`를 돌려준다. 예외를 던지면 같은 트랜잭션의 메시지 저장까지 롤백되기 때문이다.
+
+위 응답은 내부 결과 DTO(`WarningResult`)를 설명하기 위한 JSON 표현이다. 외부 REST 응답은 아니다.
+
 ### 처리 순서
 
-1. MOD-01에서 ABUSIVE 결과를 전달받는다.
-2. 상담 상태가 ACTIVE인지 확인한다.
-3. 해당 폭언 기록으로 경고가 이미 생성되었는지 확인한다.
-4. 활성 `sanction_policy`의 종료 기준을 조회한다.
+1. 상담을 조회한다.
+2. 상담 상태가 `IN_PROGRESS`가 아니면 경고하지 않는다 (`Optional.empty()`).
+3. 해당 폭언 기록으로 경고가 이미 있으면 경고하지 않는다 (`Optional.empty()`).
+4. **상담에 저장된 `policy_id`의 정책**을 조회한다. 정책을 바꿔도 진행 중인 상담에는 시작할 때의 정책이 적용된다 (체크리스트 S3). `policy_id`가 비어 있거나 찾지 못하면 가장 최근 정책을 쓴다.
 5. `warning` 테이블에 AUTO 경고를 저장한다.
-6. 해당 상담의 자동 경고 횟수를 계산한다.
-7. 고객에게 경고 이벤트를 발송한다.
-8. 종료 기준에 도달하면 MOD-03을 실행한다.
+6. 해당 상담의 경고 횟수(AUTO + MANUAL)를 센다.
+7. `WarningResult`를 돌려준다.
+
+`ChatService`는 결과를 받아 다음을 처리한다.
+
+8. `shouldTerminate`가 false이면 `WARNING_ISSUED`를 발행한다. 마스킹된 `MESSAGE`가 먼저, 경고가 다음에 도착한다. 둘 다 트랜잭션 커밋 후에 발행한다.
+9. `shouldTerminate`가 true이면 경고 알림을 보내지 않고 MOD-03을 실행한다. 이때 고객에게는 MOD-03의 종료 알림만 간다.
 
 ### 예외 상황
 
 | 상황 | errorCode | 처리 |
 | --- | --- | --- |
-| 상담 없음 | CONSULTATION_NOT_FOUND | 처리 중단 |
-| 폭언 기록 없음 | ABUSE_LOG_NOT_FOUND | 처리 중단 |
-| 중복 경고 | DUPLICATE_WARNING | 추가 저장하지 않음 |
-| 상담 종료 상태 | CHAT_ALREADY_CLOSED | 경고 생성 중단 |
-| 정책 조회 실패 | SANCTION_POLICY_NOT_FOUND | 종료 판단 보류 |
-| 경고 저장 실패 | WARNING_SAVE_FAILED | 트랜잭션 롤백 |
+| 상담 없음 | CHAT_NOT_FOUND | 처리 중단, 트랜잭션 롤백 |
+| 상담 진행 중 아님 | - | 경고하지 않음 (`Optional.empty()`) |
+| 중복 경고 | - | 추가 저장하지 않음 (`Optional.empty()`). DB에도 `uk_warning_abuse_log_id` 유니크 제약이 있다 |
+| 정책 없음 | - | `IllegalStateException`. 시드에 기본 정책이 항상 있으므로 DB 설정 오류로 본다 |
+| 경고 저장 실패 | - | 트랜잭션 롤백. 메시지·원문도 저장되지 않고 발행하지 않는다 |
 
 ### DB 연동
 
 | 테이블 | 컬럼 | 작업 |
 | --- | --- | --- |
-| consultation | consultation_id, status | SELECT |
-| warning | consultation_id, abuse_log_id, warning_type, created_at | SELECT, INSERT |
-| sanction_policy | warn_threshold, close_threshold | SELECT |
+| consultation | consultation_id, status, policy_id | SELECT |
+| warning | consultation_id, abuse_log_id, warning_type | SELECT, INSERT |
+| sanction_policy | policy_id, close_threshold | SELECT |
 
 ### WebSocket 알림 예시
+
+`/topic/chats/{consultationId}`로 발행한다 (contract.md WebSocket 「WARNING_ISSUED」).
 
 ```json
 {
@@ -218,17 +227,21 @@ WarningResult applyAutoWarning(
   "consultationId": 101,
   "warningId": 501,
   "warningCount": 1,
-  "message": "부적절한 표현이 감지되었습니다. 반복 시 상담이 종료될 수 있습니다."
+  "message": "부적절한 표현이 감지되었습니다. 한 번 더 폭언 시 상담이 종료되고 이용이 제한될 수 있습니다."
 }
 ```
 
+- 문구의 남은 횟수는 `closeThreshold - warningCount`로 정한다. 기본 정책(2회)의 첫 경고는 "한 번 더"이고, 기준이 3회이면 첫 경고는 "2번 더"가 된다 (REQ-016, 정책 4장).
+- 원문은 넣지 않는다. 같은 토픽을 상담원도 구독한다 (NFR-005).
+
 ### 설계 이유
 
-- 자동 경고와 수동 경고를 구분한다.
+- 자동 경고와 수동 경고를 구분하되, 횟수는 함께 센다 (정책 4장 「수동 경고도 1회로 셈」).
 - 상담별 폭언 횟수를 계산해 이전 상담의 경고가 새 상담에 영향을 주지 않도록 한다.
 - 경고 내역을 DB에 저장해 재접속 시에도 확인할 수 있도록 한다.
-- 경고 기준을 정책 테이블에서 조회해 정책 변경을 반영한다.
+- 정책은 상담에 저장된 `policy_id`로 조회한다. 관리자가 기준을 바꿔도 진행 중인 상담의 기준이 중간에 바뀌지 않는다.
 - 중복 메시지로 경고가 여러 번 발생하지 않도록 한다.
+- 경고 처리는 메시지 저장과 같은 트랜잭션에서 실행하고 커밋 후에 발행한다. 경고 처리가 실패하면 메시지도 저장·발행되지 않아, 경고 없이 폭언 메시지만 전달되는 일이 없다.
 
 ---
 
