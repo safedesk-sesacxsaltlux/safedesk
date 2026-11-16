@@ -14,7 +14,7 @@ import java.util.List;
 import com.safedesk.chat.dto.ChatAcceptResponseDTO;
 
 @RestController
-@RequestMapping("/api/v1/chats")
+@RequestMapping("/api/chats")
 public class ChatController {
 
     private final ChatService chatService;
