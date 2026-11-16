@@ -2,10 +2,8 @@
 package com.safedesk.chat.entity;
 
 import com.safedesk.common.exception.ErrorCode;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+
 import java.time.LocalDateTime;
 import com.safedesk.common.exception.BusinessException;
 
@@ -15,6 +13,7 @@ public class Consultation {
 
     @Id
     @Column(name = "consultation_id")
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long consultationId;
 
     @Column(name = "status", nullable = false, length = 20)
@@ -162,5 +161,15 @@ public class Consultation {
         this.closedBy = closedBy;
         this.closeReason = closeReason;
         return true;
+    }
+
+    public static Consultation start(Long customerId, Long policyId) {
+        Consultation consultation = new Consultation();
+
+        consultation.customerId = customerId;
+        consultation.policyId = policyId;
+        consultation.status = ConsultationStatus.AI_CHAT;
+        consultation.createdAt = LocalDateTime.now();
+        return consultation;
     }
 }
