@@ -54,6 +54,9 @@ public class ConsultationTest {
         assertThat(result).isTrue();
         assertThat(consultation.getStatus()).isEqualTo(ConsultationStatus.CLOSED);
         assertThat(consultation.getClosedAt()).isNotNull();
+
+        assertThat(consultation.getClosedBy()).isEqualTo(ClosedBy.AGENT);
+        assertThat(consultation.getCloseReason()).isEqualTo(CloseReason.NORMAL);
     }
 
     @Test
@@ -66,6 +69,9 @@ public class ConsultationTest {
         assertThat(result).isTrue();
         assertThat(consultation.getStatus()).isEqualTo(ConsultationStatus.TERMINATED);
         assertThat(consultation.getClosedAt()).isNotNull();
+
+        assertThat(consultation.getClosedBy()).isEqualTo(ClosedBy.SYSTEM);
+        assertThat(consultation.getCloseReason()).isEqualTo(CloseReason.ABUSE_AUTO);
     }
 
     @Test
