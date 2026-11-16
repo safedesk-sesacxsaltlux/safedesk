@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Icon from "./Icon";
+import LogoutButton from "./LogoutButton";
 
 function Brand({ href, label = "SafeDesk" }) {
   return (
@@ -53,9 +54,7 @@ export function CustomerHeader({ active }) {
         </div>
         <div className="hdr-right">
           <span>[고객명] 님</span>
-          <Link href="/login" className="logout">
-            로그아웃
-          </Link>
+          <LogoutButton />
         </div>
       </div>
     </header>
@@ -81,9 +80,7 @@ export function AgentHeader({ active, busy = false }) {
             {busy ? "● 상담 중" : "● 상담 가능"}
           </span>
           <span>[상담원명]</span>
-          <Link href="/login" className="logout">
-            로그아웃
-          </Link>
+          <LogoutButton />
         </div>
       </div>
     </header>
@@ -107,9 +104,7 @@ export function AdminHeader({ active }) {
         </div>
         <div className="hdr-right">
           <span>[관리자명]</span>
-          <Link href="/login" className="logout">
-            로그아웃
-          </Link>
+          <LogoutButton />
         </div>
       </div>
     </header>
