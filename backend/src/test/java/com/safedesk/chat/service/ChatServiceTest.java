@@ -5,6 +5,7 @@ import com.safedesk.chat.dto.ChatCloseResponseDTO;
 import com.safedesk.chat.entity.CloseReason;
 import com.safedesk.chat.entity.ClosedBy;
 import com.safedesk.chat.entity.Consultation;
+import com.safedesk.chat.entity.ConsultationStatus;
 import com.safedesk.chat.repository.ConsultationRepository;
 import com.safedesk.chat.repository.MessageRepository;
 import com.safedesk.common.event.ConsultationClosedEvent;
@@ -15,6 +16,7 @@ import com.safedesk.common.exception.BusinessException;
 import com.safedesk.common.exception.ErrorCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -108,4 +110,117 @@ public class ChatServiceTest {
 
         verify(eventPublisher, never()).publishEvent(any(ConsultationClosedEvent.class));
     }
+
+    @Test
+    void 이미_상담_중인_상담원은_다른_상담을_수락할_수_없다() {
+
+        ConsultationRepository consultationRepository = mock(ConsultationRepository.class);
+        MessageRepository messageRepository = mock(MessageRepository.class);
+        SimpMessagingTemplate messagingTemplate = mock(SimpMessagingTemplate.class);
+        ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
+        Consultation consultation = mock(Consultation.class);
+
+        when(consultationRepository.findWithLockByConsultationId(1L))
+            .thenReturn(Optional.of(consultation));
+
+        when(consultationRepository.existsByAgentIdAndStatus(
+            10L, ConsultationStatus.IN_PROGRESS
+        )).thenReturn(true);
+
+        ChatService chatService = new ChatService(
+            messageRepository,
+            messagingTemplate,
+            consultationRepository,
+            eventPublisher
+        );
+
+        assertThatThrownBy(() -> chatService.acceptConsultation(1L, 10L))
+            .isInstanceOf(BusinessException.class);
+
+        verify(consultationRepository, never())
+            .accept(anyLong(), anyLong(), any());
+    }
+
+    @Test
+    void 폭언_종료_후_10분이_지나지_않으면_상담을_수락할_수_없다() {
+        ConsultationRepository consultationRepository = mock(ConsultationRepository.class);
+        MessageRepository messageRepository = mock(MessageRepository.class);
+        SimpMessagingTemplate messagingTemplate = mock(SimpMessagingTemplate.class);
+        ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
+        Consultation consultation = mock(Consultation.class);
+        Consultation lastTerminated = mock(Consultation.class);
+
+        when(consultationRepository.findWithLockByConsultationId(1L))
+            .thenReturn(Optional.of(consultation));
+
+        when(consultationRepository.existsByAgentIdAndStatus(
+            10L, ConsultationStatus.IN_PROGRESS
+        )).thenReturn(false);
+
+        when(consultationRepository.findFirstByAgentIdAndStatusOrderByClosedAtDesc(
+            10L, ConsultationStatus.TERMINATED
+        )).thenReturn(Optional.of(lastTerminated));
+
+        when(lastTerminated.getClosedAt())
+            .thenReturn(LocalDateTime.now().minusMinutes(5));
+
+        ChatService chatService = new ChatService(
+            messageRepository,
+            messagingTemplate,
+            consultationRepository,
+            eventPublisher
+        );
+
+        assertThatThrownBy(() -> chatService.acceptConsultation(1L, 10L))
+            .isInstanceOf(BusinessException.class);
+
+        verify(consultationRepository, never())
+            .accept(anyLong(), anyLong(), any());
+    }
+
+    @Test
+    void 폭언_종료_후_10분이_지나면_상담을_수락할_수_있다() {
+        ConsultationRepository consultationRepository = mock(ConsultationRepository.class);
+        MessageRepository messageRepository = mock(MessageRepository.class);
+        SimpMessagingTemplate messagingTemplate = mock(SimpMessagingTemplate.class);
+        ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
+
+        Consultation consultation = mock(Consultation.class);
+        Consultation lastTerminated = mock(Consultation.class);
+
+        when(consultationRepository.findWithLockByConsultationId(1L))
+            .thenReturn(Optional.of(consultation));
+
+        when(consultationRepository.existsByAgentIdAndStatus(
+            10L, ConsultationStatus.IN_PROGRESS
+        )).thenReturn(false);
+
+        when(consultationRepository.findFirstByAgentIdAndStatusOrderByClosedAtDesc(
+            10L, ConsultationStatus.TERMINATED
+        )).thenReturn(Optional.of(lastTerminated));
+
+        when(lastTerminated.getClosedAt())
+            .thenReturn(LocalDateTime.now().minusMinutes(11));
+
+        ChatService chatService = new ChatService(
+            messageRepository,
+            messagingTemplate,
+            consultationRepository,
+            eventPublisher
+        );
+
+        when(consultationRepository.accept(
+            eq(1L), eq(10L), any(LocalDateTime.class)
+        )).thenReturn(1);
+
+        when(consultationRepository.findById(1L))
+            .thenReturn(Optional.of(consultation));
+
+        chatService.acceptConsultation(1L, 10L);
+
+        verify(consultationRepository).accept(
+            eq(1L), eq(10L), any(LocalDateTime.class)
+        );
+    }
+
 }
