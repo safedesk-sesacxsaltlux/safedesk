@@ -21,7 +21,7 @@
 | D-09 | 폭언 종료 이벤트 | INT-01: 모든 종료는 `ConsultationClosedEvent` 발행 / MOD-03: `AbuseConsultationTerminatedEvent`만 적혀 있음 | 폭언 종료는 두 이벤트를 모두 발행 (아래 [내부 이벤트](#내부-이벤트)) | 한수민, 유능한 | 제안 |
 | D-10 | WebSocket 규격 | chat.md API-005 「팀 확인 필요 사항」 12개 미정 (인증, 구독 경로, 오류 전달 등). 고객 대기 화면이 수락을 알 방법이 없음 | 아래 [WebSocket](#websocket) 제안. **WBS 기한 11/11** | 정혜영, 한수민, 장건웅 | 제안 |
 | D-11 | 프론트 라우트 | 화면 설계서: `/customer/consultations/:id/chat` 등 / 실제 코드: `/customer/chat`, `/customer/live`, `/admin/policy` | 아래 [화면 라우트](#화면-라우트) 표를 기준으로 확정 | 장건웅 (라우팅), 화면 담당 전원 | 제안 |
-| D-12 | AI 호출 기록 | NFR-010: Won't / INT-02: `ai_call_log` 테이블에 저장 | INT-02대로 저장 (실패 시 상담에 영향 없음). NFR-010은 Could로 수정 | 심소민, 유능한 | 제안 |
+| D-12 | AI 호출 기록 | NFR-010: Won't / INT-02: `ai_call_log` 테이블에 저장 | `ai_call_log` 테이블 만들지 않음. 호출 결과는 서버 로그로만 남긴다 (NFR-010 Won't 유지) | 심소민, 유능한 | 확정 (11/13) |
 | D-13 | AI 게이트웨이 위치 | 백엔드 패키지에 자리가 없음 (`faq/`만 있음) | `com.safedesk.ai` 패키지 추가 (게이트웨이·목업), FAQ 매칭은 `faq/` | 심소민 | 제안 |
 
 정리하면서 고친 것 (팀 확인만 필요):
