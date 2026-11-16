@@ -112,7 +112,8 @@ public class ConsultationTest {
     }
 
     @Test
-    void 처음_매칭된_FAQ와_문의_유형을_저장한다() throws Exception {
+    @DisplayName("처음 매칭된 FAQ와 문의 유형을 저장한다")
+    void recordFirstFaqMatch() throws Exception {
         Consultation consultation = createConsultation(ConsultationStatus.AI_CHAT);
 
         consultation.recordFirstFaqMatch(1L, "상하수도");
@@ -122,7 +123,8 @@ public class ConsultationTest {
     }
 
     @Test
-    void 두_번째_매칭부터는_덮어쓰지_않는다() throws Exception {
+    @DisplayName("두 번째 FAQ 매칭부터는 기존 정보를 덮어쓰지 않는다")
+    void doNotOverwriteFirstFaqMatch() throws Exception {
         Consultation consultation = createConsultation(ConsultationStatus.AI_CHAT);
         consultation.recordFirstFaqMatch(1L, "상하수도");
 
