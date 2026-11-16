@@ -33,7 +33,7 @@ public class ConsultationSummaryListener {
         try {
             summaryService.markFailed(consultationId);
         } catch (Exception e) {
-            log.error("요약 실패 기록 저장도 실패: consultaitonId={}", consultationId, e);
+            log.error("요약 실패 기록 저장도 실패: consultationId={}", consultationId, e);
         }
     }
 }

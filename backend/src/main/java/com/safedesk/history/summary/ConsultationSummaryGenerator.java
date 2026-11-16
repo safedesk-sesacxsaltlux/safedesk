@@ -1,5 +1,8 @@
 package com.safedesk.history.summary;
 
+import com.safedesk.chat.entity.CloseReason;
+import com.safedesk.chat.entity.ClosedBy;
+import com.safedesk.chat.entity.ConsultationStatus;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -48,12 +51,15 @@ public class ConsultationSummaryGenerator {
         return truncate(source.firstCustomerMessage().strip(), FIRST_MESSAGE_MAX_LENGTH);
     }
 
-    // maxLength 글자까지 남기고, 넘치면 "…" 를 붙인다.
+    // maxLength "글자"까지 남기고, 넘치면 "…" 를 붙인다.
+    // String.length()/substring() 은 UTF-16 단위라 이모지(2단위)를 반으로 자를 수 있다.
+    // 반쪽 문자는 MySQL(utf8mb4)이 거부해서 요약 저장이 실패하므로 code point(실제 글자) 기준으로 자른다.
     private String truncate(String text, int maxLength) {
-        if (text.length() <= maxLength) {
+        if (text.codePointCount(0, text.length()) <= maxLength) {
             return text;
         }
-        return text.substring(0, maxLength) + ELLIPSIS;
+        int end = text.offsetByCodePoints(0, maxLength);   // maxLength 번째 글자가 끝나는 위치
+        return text.substring(0, end) + ELLIPSIS;
     }
 
     // 상담이 어떤 순서로 진행되었는지 요약
@@ -74,7 +80,7 @@ public class ConsultationSummaryGenerator {
 
         String summary = String.join(" → ", steps);
         if(source.abusiveCount() > 0) {
-            summary += "(폭언 감지 " + source.abusiveCount() + "회)";
+            summary += " (폭언 감지 " + source.abusiveCount() + "회)";
         }
         return summary;
     }
@@ -83,25 +89,26 @@ public class ConsultationSummaryGenerator {
         if (closeReason == null) {
             return "상담 종료";
         }
+        // case 에 상수를 쓰면 이름 오타가 컴파일 에러로 잡힌다 (문자열 오타는 default 로 조용히 넘어감)
         return switch (closeReason) {
-            case "NORMAL" ->
-                switch(closedBy == null ? "" : closedBy) {
-                    case "CUSTOMER" -> "고객 종료";
-                    case "AGENT" -> "상담원 종료";
+            case CloseReason.NORMAL ->
+                switch (closedBy == null ? "" : closedBy) {
+                    case ClosedBy.CUSTOMER -> "고객 종료";
+                    case ClosedBy.AGENT -> "상담원 종료";
                     default -> "상담 종료";
                 };
-            case "QUEUE_CANCEL" -> "대기 중 취소";
-            case "ABUSE_AUTO" -> "반복 폭언으로 자동 종료";
-            case "ABUSE_MANUAL" -> "폭언으로 상담원 종료";
+            case CloseReason.QUEUE_CANCEL -> "대기 중 취소";
+            case CloseReason.ABUSE_AUTO -> "반복 폭언으로 자동 종료";
+            case CloseReason.ABUSE_MANUAL -> "폭언으로 상담원 종료";
             default -> "상담 종료";
         };
     }
 
     private String result(SummarySource source) {
-        if ("TERMINATED".equals(source.status())) {
+        if (ConsultationStatus.TERMINATED.equals(source.status())) {
             return "TERMINATED";
         }
-        if ("QUEUE_CANCEL".equals(source.closeReason())) {
+        if (CloseReason.QUEUE_CANCEL.equals(source.closeReason())) {
             return "UNRESOLVED";
         }
         if (source.acceptedAt() == null) {

@@ -1,6 +1,7 @@
 package com.safedesk.history.summary;
 
 import com.safedesk.chat.entity.Consultation;
+import com.safedesk.chat.entity.ConsultationStatus;
 import com.safedesk.faq.entity.Faq;
 import com.safedesk.faq.repository.FaqRepository;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +20,8 @@ import java.util.Set;
 // ⑤ ConsultationSummaryService: 순서 조립 + 트랜잭션
 public class ConsultationSummaryService {
 
-    private static final Set<String> CLOSED_STATUSES = Set.of("CLOSED", "TERMINATED");
+    private static final Set<String> CLOSED_STATUSES =
+            Set.of(ConsultationStatus.CLOSED, ConsultationStatus.TERMINATED);
 
     private final ConsultationSummaryRepository summaryRepository;
     private final ConsultationSummaryGenerator summaryGenerator;
