@@ -25,6 +25,9 @@ public class Consultation {
     @Column(name = "inquiry_summary", nullable = true, length = 100)
     private String inquirySummary;
 
+    @Column(name = "faq_id", nullable = true)
+    private Long faqId;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -74,6 +77,10 @@ public class Consultation {
         return inquirySummary;
     }
 
+    public Long getFaqId() {
+        return faqId;
+    }
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
@@ -116,6 +123,16 @@ public class Consultation {
 
     public Long getAgentId() {
         return agentId;
+    }
+
+    // CUS-02 6단계: 처음 매칭된 FAQ만 남긴다. 이미 있으면 무시한다.
+    // 문의 유형도 같은 FAQ 기준으로 같이 저장해서 둘이 어긋나지 않게 한다.
+    public void recordFirstFaqMatch(Long faqId, String category) {
+        if(this.faqId != null) {
+            return;
+        }
+        this.faqId = faqId;
+        this.inquiryCategory = category;
     }
 
     // AI 상담을 상담원에게 넘기기 위해 대기열에 등록하는 메서드
