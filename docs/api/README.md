@@ -4,7 +4,7 @@ enum·URL 규칙·응답 형식·errorCode·WebSocket 이벤트 같은 공통 �
 
 | 도메인 | 파일 | 포함 API |
 | --- | --- | --- |
-| 회원·인증 | [auth.md](auth.md) | API-AUTH-01 ~ 05 |
+| 회원·인증 | [auth.md](auth.md) | API-AUTH-01 ~ 06 |
 | 정책 | [policy.md](policy.md) | API-ADM-01 ~ 03 |
 | 제재 | [sanction.md](sanction.md) | API-ADM-04 ~ 07 |
 | FAQ | [faq.md](faq.md) | API-ADM-08 ~ 11 |
@@ -23,6 +23,7 @@ enum·URL 규칙·응답 형식·errorCode·WebSocket 이벤트 같은 공통 �
 | [API-AUTH-03](auth.md#api-auth-03-로그인) | 인증 | POST | `/api/auth/login` | 로그인 | 불필요 | 작성완료 | 장건웅 |  |
 | [API-AUTH-04](auth.md#api-auth-04-로그아웃) | 인증 | POST | `/api/auth/logout` | 로그아웃 | 필요 | 작성완료 | 장건웅 |  |
 | [API-AUTH-05](auth.md#api-auth-05-내-정보-조회) | 인증 | GET | `/api/auth/me` | 내 정보 조회 | 필요 | 작성완료 | 장건웅 |  |
+| [API-AUTH-06](auth.md#api-auth-06-토큰-재발급) | 인증 | POST | `/api/auth/refresh` | 토큰 재발급 | 불필요 (리프레시 토큰 쿠키) | 작성완료 | 장건웅 |  |
 | [API-ADM-01](policy.md#api-adm-01-제재-정책-조회) | 정책 | GET | `/api/admin/policies` | 제재 정책 조회 | 필요 (ADMIN) | 작성완료 | 장건웅 |  |
 | [API-ADM-02](policy.md#api-adm-02-제재-정책-수정) | 정책 | PUT | `/api/admin/policies` | 제재 정책 수정 | 필요 (ADMIN) | 작성완료 | 장건웅 |  |
 | [API-ADM-03](policy.md#api-adm-03-정책-변경-이력-조회) | 정책 | GET | `/api/admin/policies/histories` | 정책 변경 이력 조회 | 필요 (ADMIN) | 작성완료 | 장건웅 |  |

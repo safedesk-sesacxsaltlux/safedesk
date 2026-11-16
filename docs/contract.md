@@ -78,6 +78,7 @@ D-06 제안 목록이다. 도메인 공통 코드를 먼저 쓰고, 상담 관�
 | INVALID_PERIOD | 400 | 조회 기간을 다시 선택해주세요. | |
 | LOGIN_FAILED | 401 | 아이디 또는 비밀번호가 올바르지 않습니다. | (auth.md에 코드 없음) |
 | DUPLICATE_LOGIN_ID | 409 | 이미 사용 중인 아이디입니다. | (auth.md에 코드 없음) |
+| MEMBER_INACTIVE | 403 | 사용할 수 없는 계정입니다. | (auth.md 로그인·토큰 재발급의 INACTIVE 회원) |
 | CUSTOMER_SANCTIONED | 403 | 상담 중 폭언으로 이용이 정지되었습니다. {releaseAt}에 해제됩니다. | |
 | CHAT_NOT_FOUND | 404 | 상담을 찾을 수 없습니다. | CONSULTATION_NOT_FOUND |
 | CHAT_ACCESS_DENIED | 403 | 접근 권한이 없습니다. (본인 상담·수락한 상담이 아님) | NOT_ASSIGNED_AGENT |

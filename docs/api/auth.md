@@ -9,6 +9,20 @@
 | API-AUTH-03 | POST | `/api/auth/login` | 로그인 | 인증 | 불필요 | 작성완료 | 장건웅 |
 | API-AUTH-04 | POST | `/api/auth/logout` | 로그아웃 | 인증 | 필요 | 작성완료 | 장건웅 |
 | API-AUTH-05 | GET | `/api/auth/me` | 내 정보 조회 | 인증 | 필요 | 작성완료 | 장건웅 |
+| API-AUTH-06 | POST | `/api/auth/refresh` | 토큰 재발급 | 인증 | 불필요 (리프레시 토큰 쿠키) | 작성완료 | 장건웅 |
+
+### 토큰 정책
+
+| 토큰 | 형식 | 유효 시간 | 브라우저 저장 | 서버 저장 |
+| --- | --- | --- | --- | --- |
+| 액세스 토큰 | JWT (sub, role, iat, exp) | 1시간 (`jwt.expiration-seconds`) | localStorage, 요청 시 `Authorization: Bearer` 헤더 | 저장 안 함. 로그아웃한 토큰만 만료 시각까지 블랙리스트(서버 메모리) |
+| 리프레시 토큰 | 랜덤 문자열 (JWT 아님) | 7일 (`jwt.refresh-expiration-seconds`) | HttpOnly 쿠키 `refreshToken` | DB `refresh_token` 테이블에 SHA-256 해시로 저장 (기기마다 한 행) |
+
+- 리프레시 토큰 쿠키: `refreshToken={토큰}; Path=/api/auth; Max-Age=604800; HttpOnly; SameSite=Strict` (운영 환경은 `Secure` 추가)
+- 쿠키를 주고받는 요청(로그인·재발급·로그아웃)은 프론트에서 `fetch(..., { credentials: "include" })`로 보낸다. 프론트(3000)와 백엔드(8080)의 포트가 달라서 이 옵션이 없으면 쿠키가 저장·전송되지 않는다.
+- 재발급할 때마다 리프레시 토큰을 새것으로 바꾸고(rotation) 이전 토큰은 바로 무효로 만든다.
+- 리프레시 토큰은 DB에 있으므로 서버를 재시작해도 로그인이 유지된다. 만료된 행은 로그인할 때 함께 지운다.
+- 액세스 토큰 블랙리스트는 서버 메모리에 있어서 서버를 재시작하면 사라진다. 이때 로그아웃한 액세스 토큰이 남은 만료 시간(최대 1시간) 동안 다시 유효해진다. (Redis 이전은 추후 논의)
 
 ---
 
@@ -191,7 +205,13 @@
 }
 ```
 
-JWT payload에는 sub(memberId), role, exp만 넣는다. 같은 토큰을 WebSocket 연결 인증에도 쓴다.
+JWT payload에는 sub(memberId), role, iat, exp만 넣는다. 같은 토큰을 WebSocket 연결 인증에도 쓴다.
+
+### Response Header
+
+| 이름 | 값 | 설명 |
+| --- | --- | --- |
+| Set-Cookie | `refreshToken={토큰}; Path=/api/auth; Max-Age=604800; HttpOnly; SameSite=Strict` | 리프레시 토큰. 응답 본문에는 넣지 않는다. ([토큰 정책](#토큰-정책)) |
 
 ### Status Code
 
@@ -226,13 +246,20 @@ JWT payload에는 sub(memberId), role, exp만 넣는다. 같은 토큰을 WebSoc
 | 호출 시점 | 로그아웃 버튼 클릭 시 |
 | 인증 필요 | 예 |
 | 관련 요구사항 | REQ-003 |
-| 설명 | 서버는 해당 토큰을 만료 시각까지 블랙리스트에 올리고, 프론트는 저장된 토큰을 지운다. 상담원이 상담 중이어도 상담은 자동 종료하지 않는다. |
+| 설명 | 서버는 해당 토큰을 만료 시각까지 블랙리스트에 올리고, 리프레시 토큰 쿠키가 있으면 서버에서 삭제한 뒤 쿠키도 지운다(Max-Age=0). 프론트는 저장된 토큰을 지운다. 액세스 토큰이 만료되어 401이 오면 프론트는 재발급(API-AUTH-06) 후 다시 요청한다. 상담원이 상담 중이어도 상담은 자동 종료하지 않는다. |
 
 ### Request Header
 
 | 이름 | 값 | 필수 | 설명 |
 | --- | --- | --- | --- |
 | Authorization | Bearer {accessToken} | Y | 로그인 시 발급받은 JWT |
+| Cookie | refreshToken={토큰} | N | 브라우저가 자동으로 보낸다 (`credentials: "include"`) |
+
+### Response Header
+
+| 이름 | 값 | 설명 |
+| --- | --- | --- |
+| Set-Cookie | `refreshToken=; Path=/api/auth; Max-Age=0; HttpOnly; SameSite=Strict` | 리프레시 토큰 쿠키 삭제 |
 
 ### Response Body
 
@@ -308,3 +335,70 @@ JWT payload에는 sub(memberId), role, exp만 넣는다. 같은 토큰을 WebSoc
 | 상황 | 응답 코드 | 메시지 |
 | --- | --- | --- |
 | 토큰 없음·만료·로그아웃된 토큰 | 401 Unauthorized | 로그인이 필요합니다. |
+
+---
+
+## API-AUTH-06 토큰 재발급
+
+### 기본 정보
+
+| 항목 | 내용 |
+| --- | --- |
+| API ID | API-AUTH-06 |
+| 기능 | 토큰 재발급 |
+| Method | POST |
+| URL | /api/auth/refresh |
+| 사용 화면 | 로그인 후 모든 화면 (라우트 가드, API 호출 중 401) |
+| 호출 시점 | 액세스 토큰이 만료되어 401을 받았을 때 |
+| 인증 필요 | 아니오 (액세스 토큰 대신 리프레시 토큰 쿠키로 확인) |
+| 관련 요구사항 | NFR-002 |
+| 설명 | 리프레시 토큰 쿠키가 유효하면 새 액세스 토큰을 발급하고, 리프레시 토큰도 새것으로 바꾼다(rotation). 이전 리프레시 토큰은 바로 무효가 된다. 응답 본문은 로그인(API-AUTH-03)과 같다. |
+
+### Request Header
+
+| 이름 | 값 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| Cookie | refreshToken={토큰} | Y | 브라우저가 자동으로 보낸다 (`credentials: "include"`) |
+
+요청 본문은 없다.
+
+### Response Header
+
+| 이름 | 값 | 설명 |
+| --- | --- | --- |
+| Set-Cookie | `refreshToken={새 토큰}; Path=/api/auth; Max-Age=604800; HttpOnly; SameSite=Strict` | 새 리프레시 토큰. 실패 시에는 `Max-Age=0`으로 쿠키를 지운다. |
+
+### Response Body
+
+```json
+{
+  "success": true,
+  "message": "토큰이 재발급되었습니다.",
+  "data": {
+    "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
+    "tokenType": "Bearer",
+    "expiresIn": 3600,
+    "member": {
+      "memberId": 1,
+      "loginId": "user01",
+      "name": "홍길동",
+      "role": "CUSTOMER"
+    }
+  }
+}
+```
+
+### Status Code
+
+| 상태 코드 | 설명 |
+| --- | --- |
+| 200 OK | 재발급 성공 |
+| 401 Unauthorized | 리프레시 토큰 없음·만료·이미 사용됨·로그아웃됨 |
+| 403 Forbidden | INACTIVE 회원 |
+
+### 예외 상황
+
+| 상황 | 응답 코드 | 메시지 |
+| --- | --- | --- |
+| 리프레시 토큰 없음·만료·이미 사용됨·로그아웃됨 | 401 Unauthorized | 로그인이 필요합니다. |
+| INACTIVE 회원 | 403 Forbidden | 사용할 수 없는 계정입니다. |

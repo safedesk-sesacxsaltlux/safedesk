@@ -15,6 +15,10 @@ spring:
 
 jwt:
   secret: ${JWT_SECRET}
+  expiration-seconds: 3600
+  refresh-expiration-seconds: 604800 # 7일
+  # 배포시에는 true로 변경, 로컬환경에서는 false
+  refresh-cookie-secure: false
 
 ai:
   timeout-ms: 10000
