@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 고객 AI 상담 API (CUS-01~04). 상담원 쪽 API 는 ChatController.
  */
 @RestController
-@RequestMapping("/api/v1/chats")
+@RequestMapping("/api/chats")
 public class CustomerChatController {
 
     private final CustomerChatService customerChatService;
