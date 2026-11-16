@@ -98,4 +98,25 @@ public class ConsultationTest {
         assertThatThrownBy(() -> consultation.terminate(ClosedBy.SYSTEM, CloseReason.ABUSE_AUTO))
             .isInstanceOf(BusinessException.class);
     }
+
+    @Test
+    void 처음_매칭된_FAQ와_문의_유형을_저장한다() throws Exception {
+        Consultation consultation = createConsultation(ConsultationStatus.AI_CHAT);
+
+        consultation.recordFirstFaqMatch(1L, "상하수도");
+
+        assertThat(consultation.getFaqId()).isEqualTo(1L);
+        assertThat(consultation.getInquiryCategory()).isEqualTo("상하수도");
+    }
+
+    @Test
+    void 두_번째_매칭부터는_덮어쓰지_않는다() throws Exception {
+        Consultation consultation = createConsultation(ConsultationStatus.AI_CHAT);
+        consultation.recordFirstFaqMatch(1L, "상하수도");
+
+        consultation.recordFirstFaqMatch(22L, "대중교통");
+
+        assertThat(consultation.getFaqId()).isEqualTo(1L);
+        assertThat(consultation.getInquiryCategory()).isEqualTo("상하수도");
+    }
 }
