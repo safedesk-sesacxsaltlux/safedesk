@@ -21,7 +21,7 @@ public class ConsultationTest {
     }
 
     @Test
-    void AI_상담을_대기열로_전환한다() throws Exception {
+    void transitionsAiConsultationToQueue() throws Exception {
         Consultation consultation = createConsultation(ConsultationStatus.AI_CHAT);
 
         consultation.handoff();
@@ -31,7 +31,7 @@ public class ConsultationTest {
     }
 
     @Test
-    void 대기_상담을_수락한다() throws Exception {
+    void acceptsWaitingConsultation() throws Exception {
         Consultation consultation = createConsultation(ConsultationStatus.QUEUED);
 
         consultation.accept(10L);
@@ -42,7 +42,7 @@ public class ConsultationTest {
     }
 
     @Test
-    void 진행_중인_상담을_정상_종료한다() throws Exception {
+    void closesInProgressConsultationNormally() throws Exception {
         Consultation consultation = createConsultation(ConsultationStatus.IN_PROGRESS);
 
         boolean result = consultation.close(ClosedBy.AGENT, CloseReason.NORMAL);
@@ -53,7 +53,7 @@ public class ConsultationTest {
     }
 
     @Test
-    void 진행_중인_상담을_강제_종료한다() throws Exception {
+    void forceClosesInProgressConsultation() throws Exception {
         Consultation consultation = createConsultation(ConsultationStatus.IN_PROGRESS);
 
         boolean result = consultation.terminate(ClosedBy.SYSTEM, CloseReason.ABUSE_AUTO);
@@ -64,7 +64,7 @@ public class ConsultationTest {
     }
 
     @Test
-    void 대기_상태가_아니면_수락할_수_없다() throws Exception {
+    void cannotAcceptWhenNotWaiting() throws Exception {
         Consultation consultation = createConsultation(ConsultationStatus.IN_PROGRESS);
 
         assertThatThrownBy(() -> consultation.accept(10L))
@@ -72,7 +72,7 @@ public class ConsultationTest {
     }
 
     @Test
-    void 이미_종료된_상담은_다시_종료하지_않는다() throws Exception {
+    void doesNotCloseAlreadyClosedConsultation() throws Exception {
         Consultation consultation = createConsultation(ConsultationStatus.CLOSED);
 
         boolean result = consultation.close(ClosedBy.AGENT, CloseReason.NORMAL);
@@ -82,7 +82,7 @@ public class ConsultationTest {
     }
 
     @Test
-    void 이미_강제_종료된_상담은_중복_종료하지_않는다() throws Exception {
+    void doesNotCloseAlreadyForceClosedConsultationAgain() throws Exception {
         Consultation consultation = createConsultation(ConsultationStatus.TERMINATED);
 
         boolean result = consultation.terminate(ClosedBy.SYSTEM, CloseReason.ABUSE_AUTO);
@@ -92,7 +92,7 @@ public class ConsultationTest {
     }
 
     @Test
-    void 진행_중이_아니면_강제_종료할_수_없다() throws Exception {
+    void cannotForceCloseWhenNotInProgress() throws Exception {
         Consultation consultation = createConsultation(ConsultationStatus.QUEUED);
 
         assertThatThrownBy(() -> consultation.terminate(ClosedBy.SYSTEM, CloseReason.ABUSE_AUTO))
