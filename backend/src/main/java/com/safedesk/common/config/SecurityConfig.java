@@ -49,7 +49,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/me", "/api/auth/logout").authenticated()
                         // HIS-06 상담 상세: 로그인만 확인 (토큰 없으면 401). 본인 상담인지는 서비스에서 확인
-                        .requestMatchers("/api/v1/consultations/*/history").authenticated()
+                        .requestMatchers("/api/consultations/*/history").authenticated()
 
                         // TODO(인증): API별 서버 권한 검사. docs/api 명세의 "인증" 열 기준으로 작성함.
                         //  주석 해제 전 확인할 것
