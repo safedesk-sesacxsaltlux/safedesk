@@ -51,7 +51,11 @@ public class JwtProvider {
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
-            return new JwtClaims(Long.valueOf(claims.getSubject()), claims.get(ROLE_CLAIM, String.class));
+            return new JwtClaims(
+                Long.valueOf(claims.getSubject()),
+                claims.get(ROLE_CLAIM, String.class),
+                claims.getExpiration().toInstant()
+            );
         } catch (JwtException | IllegalArgumentException e) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }

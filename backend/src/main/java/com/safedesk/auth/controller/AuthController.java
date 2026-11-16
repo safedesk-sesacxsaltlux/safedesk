@@ -6,10 +6,12 @@ import com.safedesk.auth.dto.LoginResponseDTO;
 import com.safedesk.auth.dto.MemberInfoDTO;
 import com.safedesk.auth.dto.SignupRequestDTO;
 import com.safedesk.auth.dto.SignupResponseDTO;
+import com.safedesk.auth.jwt.BearerToken;
 import com.safedesk.auth.service.AuthService;
 import com.safedesk.common.response.ApiResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -53,5 +55,12 @@ public class AuthController {
     public ResponseEntity<ApiResponse<MemberInfoDTO>> me(@AuthenticationPrincipal Long memberId) {
         MemberInfoDTO result = authService.getMe(memberId);
         return ResponseEntity.ok(ApiResponse.success(result, "요청이 처리되었습니다."));
+    }
+
+    // 인증이 필요한 경로라서 여기까지 오면 Authorization 헤더에 유효한 토큰이 있다.
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout(@RequestHeader(HttpHeaders.AUTHORIZATION) String authorization) {
+        authService.logout(BearerToken.resolve(authorization));
+        return ResponseEntity.ok(ApiResponse.success(null, "로그아웃되었습니다."));
     }
 }

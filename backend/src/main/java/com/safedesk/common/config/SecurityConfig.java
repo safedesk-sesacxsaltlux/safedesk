@@ -3,6 +3,7 @@ package com.safedesk.common.config;
 import com.safedesk.auth.jwt.JwtAuthenticationEntryPoint;
 import com.safedesk.auth.jwt.JwtAuthenticationFilter;
 import com.safedesk.auth.jwt.JwtProvider;
+import com.safedesk.auth.jwt.TokenBlacklist;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -24,10 +25,13 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtProvider jwtProvider;
+    private final TokenBlacklist tokenBlacklist;
     private final JwtAuthenticationEntryPoint authenticationEntryPoint;
 
-    public SecurityConfig(JwtProvider jwtProvider, JwtAuthenticationEntryPoint authenticationEntryPoint) {
+    public SecurityConfig(JwtProvider jwtProvider, TokenBlacklist tokenBlacklist,
+                          JwtAuthenticationEntryPoint authenticationEntryPoint) {
         this.jwtProvider = jwtProvider;
+        this.tokenBlacklist = tokenBlacklist;
         this.authenticationEntryPoint = authenticationEntryPoint;
     }
 
@@ -39,11 +43,11 @@ public class SecurityConfig {
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .addFilterBefore(new JwtAuthenticationFilter(jwtProvider), UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(new JwtAuthenticationFilter(jwtProvider, tokenBlacklist), UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(authenticationEntryPoint))
                 // 위에서부터 처음 맞는 규칙이 적용되므로, 인증이 필요한 /api/auth 경로를 /api/auth/** 보다 먼저 둔다.
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/me").authenticated()
+                        .requestMatchers("/api/auth/me", "/api/auth/logout").authenticated()
 
                         // TODO(인증): API별 서버 권한 검사. docs/api 명세의 "인증" 열 기준으로 작성함.
                         //  주석 해제 전 확인할 것
@@ -51,8 +55,7 @@ public class SecurityConfig {
                         //  2. 프론트의 모든 API 호출에 Authorization: Bearer 헤더가 붙어 있는지
                         //     (붙어 있지 않으면 해제하는 순간 해당 화면이 전부 401)
                         //  3. 맨 아래 anyRequest().permitAll()을 anyRequest().authenticated()로 변경
-                        //  4. 로그아웃(/api/auth/logout) 구현 시 위 /api/auth/me 줄에 함께 추가
-                        //  5. import org.springframework.http.HttpMethod; 추가
+                        //  4. import org.springframework.http.HttpMethod; 추가
                         //  WebSocket(/app/chats/**) 인증은 HTTP 규칙이 아니라 STOMP CONNECT 인터셉터에서 따로 처리해야 함.
                         //
                         // 관리자 (policy.md, sanction.md, faq.md, history.md, customer-chat.md API-DEV-01)

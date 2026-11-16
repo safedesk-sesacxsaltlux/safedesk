@@ -20,21 +20,22 @@ import java.util.List;
 // @Component를 붙이면 Spring Boot가 일반 서블릿 필터로도 등록해서 두 번 실행되므로 SecurityConfig에서 직접 생성한다.
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private static final String BEARER_PREFIX = "Bearer ";
-
     private final JwtProvider jwtProvider;
+    private final TokenBlacklist tokenBlacklist;
 
-    public JwtAuthenticationFilter(JwtProvider jwtProvider) {
+    public JwtAuthenticationFilter(JwtProvider jwtProvider, TokenBlacklist tokenBlacklist) {
         this.jwtProvider = jwtProvider;
+        this.tokenBlacklist = tokenBlacklist;
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
         throws ServletException, IOException {
 
-        String header = request.getHeader("Authorization");
-        if (header != null && header.startsWith(BEARER_PREFIX)) {
-            String token = header.substring(BEARER_PREFIX.length());
+        String token = BearerToken.resolve(request.getHeader("Authorization"));
+        // 로그아웃한 토큰은 서명·만료가 정상이어도 로그인하지 않은 것으로 본다.
+        // TODO(인증): WebSocket STOMP CONNECT 인터셉터를 만들 때도 같은 블랙리스트 확인을 넣어야 한다.
+        if (token != null && !tokenBlacklist.contains(token)) {
             try {
                 JwtClaims claims = jwtProvider.validate(token);
 

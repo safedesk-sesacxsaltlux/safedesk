@@ -6,7 +6,9 @@ import com.safedesk.auth.dto.LoginResponseDTO;
 import com.safedesk.auth.dto.MemberInfoDTO;
 import com.safedesk.auth.dto.SignupRequestDTO;
 import com.safedesk.auth.dto.SignupResponseDTO;
+import com.safedesk.auth.jwt.JwtClaims;
 import com.safedesk.auth.jwt.JwtProvider;
+import com.safedesk.auth.jwt.TokenBlacklist;
 import com.safedesk.common.exception.BusinessException;
 import com.safedesk.common.exception.ErrorCode;
 import com.safedesk.member.entity.Member;
@@ -22,11 +24,14 @@ public class AuthService {
     private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
+    private final TokenBlacklist tokenBlacklist;
 
-    public AuthService(MemberRepository memberRepository, PasswordEncoder passwordEncoder, JwtProvider jwtProvider) {
+    public AuthService(MemberRepository memberRepository, PasswordEncoder passwordEncoder,
+                       JwtProvider jwtProvider, TokenBlacklist tokenBlacklist) {
         this.memberRepository = memberRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtProvider = jwtProvider;
+        this.tokenBlacklist = tokenBlacklist;
     }
 
     @Transactional(readOnly = true)
@@ -88,5 +93,11 @@ public class AuthService {
         Member member = memberRepository.findById(memberId)
             .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
         return MemberInfoDTO.from(member);
+    }
+
+    // 토큰을 만료 시각까지 블랙리스트에 올린다. 상담 중이어도 상담은 종료하지 않는다. (auth.md API-AUTH-04)
+    public void logout(String token) {
+        JwtClaims claims = jwtProvider.validate(token);
+        tokenBlacklist.add(token, claims.expiresAt());
     }
 }

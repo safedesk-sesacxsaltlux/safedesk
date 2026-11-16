@@ -14,7 +14,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class JwtAuthenticationFilterTest {
 
     private final JwtProvider jwtProvider = new JwtProvider("test-secret-key-must-be-at-least-32-bytes!!", 3600);
-    private final JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtProvider);
+    private final TokenBlacklist tokenBlacklist = new TokenBlacklist();
+    private final JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtProvider, tokenBlacklist);
 
     @AfterEach
     void clear() {
@@ -39,6 +40,14 @@ public class JwtAuthenticationFilterTest {
     @Test
     void Bearer가_아닌_헤더는_무시한다() throws Exception {
         assertThat(runWith("Basic abc")).isNull();
+    }
+
+    @Test
+    void 로그아웃한_토큰은_등록하지_않는다() throws Exception {
+        String token = jwtProvider.createToken(13L, "CUSTOMER");
+        tokenBlacklist.add(token, jwtProvider.validate(token).expiresAt());
+
+        assertThat(runWith("Bearer " + token)).isNull();
     }
 
     @Test

@@ -4,6 +4,7 @@ import com.safedesk.auth.dto.LoginRequestDTO;
 import com.safedesk.auth.dto.LoginResponseDTO;
 import com.safedesk.auth.jwt.JwtClaims;
 import com.safedesk.auth.jwt.JwtProvider;
+import com.safedesk.auth.jwt.TokenBlacklist;
 import com.safedesk.common.exception.BusinessException;
 import com.safedesk.common.exception.ErrorCode;
 import com.safedesk.member.entity.Member;
@@ -29,7 +30,8 @@ public class AuthServiceLoginTest {
     private final MemberRepository memberRepository = mock(MemberRepository.class);
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     private final JwtProvider jwtProvider = new JwtProvider("test-secret-key-must-be-at-least-32-bytes!!", 3600);
-    private final AuthService authService = new AuthService(memberRepository, passwordEncoder, jwtProvider);
+    private final AuthService authService =
+        new AuthService(memberRepository, passwordEncoder, jwtProvider, new TokenBlacklist());
 
     private Member active;
     private Member inactive;
