@@ -142,7 +142,7 @@ Request Body 없음. customerId는 JWT에서 꺼낸다.
 3. 이관 조건을 확인한다. 메시지에 상담원 요청이 있거나 직전과 같은 FAQ가 다시 매칭되면 답변 대신 연결을 제안한다.
 4. AI 게이트웨이를 호출한다. 제한 시간은 10초다.
 5. 실패하거나 시간을 넘기면 FAQ 키워드 매칭으로 대신한다. 공백을 지운 질문에 포함된 키워드 글자 수 합이 가장 큰 FAQ를 고르고, 0점이면 NO_ANSWER다.
-6. FAQ가 매칭됐고 CONSULTATION의 `inquiry_category`가 비어 있으면 그 FAQ의 카테고리와 `faq_id`를 저장한다.
+6. FAQ가 매칭됐고 CONSULTATION의 `faq_id`가 비어 있으면 그 FAQ의 `faq_id`와 카테고리를 저장한다. (`Consultation.recordFirstFaqMatch(faqId, category)`, 처음 매칭만 남는다)
 7. 봇 메시지를 저장하고 AI 호출 결과(응답 시간, 성공 여부, 대체 답변 사용 여부)를 서버 로그로 남긴다. (DB 저장 안 함, contract.md D-12)
 
 ### 예외 상황

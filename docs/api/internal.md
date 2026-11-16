@@ -41,10 +41,10 @@ public void onClosed(ConsultationClosedEvent event) {
 
 | 저장 컬럼 | 템플릿 규칙 |
 | --- | --- |
-| inquiry_category | 이미 저장된 값 사용. 없으면 첫 고객 메시지에 FAQ 매칭 규칙을 다시 적용. 그래도 없으면 "기타" |
-| inquiry_summary | 매칭된 FAQ의 대표 질문. 매칭 없으면 첫 고객 메시지(마스킹본) 앞 50자 + "…" |
+| inquiry_category | 상담 중 저장된 값(CUS-02 6단계). 없으면 "기타" |
+| inquiry_summary | `faq_id`가 가리키는 FAQ의 대표 질문(100자 넘으면 자름). 없으면 첫 고객 메시지(마스킹본) 앞 50자 + "…" |
 | process_summary | "AI 응대" → (queued_at 있으면) "상담원 연결 요청" → (accepted_at 있으면) "상담원 상담" → 종료 문구. 폭언이 있으면 "(폭언 감지 N회)" 추가 |
-| result | TERMINATED → TERMINATED / 대기 취소 → UNRESOLVED / AI 단독 종료: FAQ 매칭 있음 → RESOLVED, 없음 → UNRESOLVED / 상담원 정상 종료 → RESOLVED |
+| result | TERMINATED → TERMINATED / 대기 취소 → UNRESOLVED / AI 단독 종료: `faq_id` 있음 → RESOLVED, 없음 → UNRESOLVED / 상담원 정상 종료 → RESOLVED |
 
 종료 문구
 
