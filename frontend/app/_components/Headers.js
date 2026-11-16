@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Icon from "./Icon";
 import LogoutButton from "./LogoutButton";
+import MemberName from "./MemberName";
 
 function Brand({ href, label = "SafeDesk" }) {
   return (
@@ -53,7 +54,9 @@ export function CustomerHeader({ active }) {
           <Nav items={CUSTOMER_NAV} active={active} />
         </div>
         <div className="hdr-right">
-          <span>[고객명] 님</span>
+          <span>
+            <MemberName /> 님
+          </span>
           <LogoutButton />
         </div>
       </div>
@@ -79,7 +82,9 @@ export function AgentHeader({ active, busy = false }) {
           <span className={busy ? "pill-status busy" : "pill-status"}>
             {busy ? "● 상담 중" : "● 상담 가능"}
           </span>
-          <span>[상담원명]</span>
+          <span>
+            <MemberName />
+          </span>
           <LogoutButton />
         </div>
       </div>
@@ -103,7 +108,9 @@ export function AdminHeader({ active }) {
           <Nav items={ADMIN_NAV} active={active} />
         </div>
         <div className="hdr-right">
-          <span>[관리자명]</span>
+          <span>
+            <MemberName />
+          </span>
           <LogoutButton />
         </div>
       </div>

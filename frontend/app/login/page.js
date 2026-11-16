@@ -30,9 +30,11 @@ export default function LoginPage() {
 
     setSubmitting(true);
     try {
+      // credentials: "include"가 있어야 응답의 리프레시 토큰 쿠키(Set-Cookie)가 저장된다
       const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           loginId: form.loginId.trim(),
           password: form.password,
