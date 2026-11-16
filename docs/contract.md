@@ -11,7 +11,7 @@
 | ID | 항목 | 지금 문서 상태 | 제안 | 영향 | 상태 |
 | --- | --- | --- | --- | --- | --- |
 | D-01 | 상담 상태 이름 | policy·chat.md: `AI_CHAT`, `IN_PROGRESS` / customer-chat.md·코드 컨벤션: `BOT`, `ACTIVE` | `AI_CHAT`, `QUEUED`, `IN_PROGRESS`, `CLOSED`, `TERMINATED` (정책서 기준, customer-chat.md만 고치면 됨) | 전원 | 제안 |
-| D-02 | URL 접두사 | auth·admin·history·moderation: `/api/...` / chat·customer-chat: `/api/v1/...` | `/api`로 통일 (`v1` 제거) | 정혜영, 심소민 | 제안 |
+| D-02 | URL 접두사 | auth·admin·history·moderation: `/api/...` / chat·customer-chat: `/api/v1/...` | `/api`로 통일 (`v1` 제거) | 정혜영, 심소민 | 확정 |
 | D-03 | 상담 리소스 경로 | chat·customer-chat: `/chats/{chatId}` / history·moderation: `/consultations/{consultationId}` | URL은 `chats/{chatId}`로 통일. HIS-06, MOD-05~07, 목록 API(`/me/consultations`, `/admin/consultations`)를 `chats`로 바꾼다. Java·DB 이름은 `Consultation` 그대로 | 유능한, 한수민 | 제안 |
 | D-04 | 종료 사유·주체 코드 | internal.md: `NORMAL`·`QUEUE_CANCEL`·`ABUSE_AUTO`·`ABUSE_MANUAL` / moderation.md: `ABUSE_THRESHOLD_EXCEEDED`, 자유 문장 / chat.md: `AGENT_CLOSED`(예시) | internal.md 기준 4개 (아래 [종료 처리](#종료-처리)) | 정혜영, 한수민, 유능한 | 제안 |
 | D-05 | 메시지 발신자 | customer-chat.md: `BOT` / chat.md: `AI` | `CUSTOMER`, `AGENT`, `BOT`. AI 메시지의 `sender_id`(ERD상 필수 FK) 처리도 같이 정한다 | 심소민, 정혜영, 유능한 | 제안 |

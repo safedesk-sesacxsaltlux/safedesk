@@ -35,19 +35,19 @@ enum·URL 규칙·응답 형식·errorCode·WebSocket 이벤트 같은 공통 �
 | [API-ADM-09](faq.md#api-adm-09-faq-등록) | FAQ | POST | `/api/admin/faqs` | FAQ 등록 | 필요 (ADMIN) | 작성완료 | 장건웅 | could |
 | [API-ADM-10](faq.md#api-adm-10-faq-수정) | FAQ | PUT | `/api/admin/faqs/{faqId}` | FAQ 수정 | 필요 (ADMIN) | 작성완료 | 장건웅 | could |
 | [API-ADM-11](faq.md#api-adm-11-faq-삭제) | FAQ | DELETE | `/api/admin/faqs/{faqId}` | FAQ 삭제 | 필요 (ADMIN) | 작성완료 | 장건웅 | could |
-| [API-001](chat.md#api-001-상담-대기열-조회) | 상담 | GET | `/api/v1/chats/queue` | 상담 대기열 조회 | 필요 | 수정완료 | 정혜영 |  |
-| [API-002](chat.md#api-002-상담-수락) | 상담 | PATCH | `/api/v1/chats/{chatId}/accept` | 상담 수락 | 필요 | 수정완료 | 정혜영 |  |
-| [API-003](chat.md#api-003-상담-상세-조회) | 상담 | GET | `/api/v1/chats/{chatId}` | 상담 상세 조회 | 필요 | 수정완료 | 정혜영 |  |
-| [API-004](chat.md#api-004-상담-메시지-조회) | 채팅 | GET | `/api/v1/chats/{chatId}/messages` | 상담 메시지 조회 | 필요 | 수정완료 | 정혜영 |  |
+| [API-001](chat.md#api-001-상담-대기열-조회) | 상담 | GET | `/api/chats/queue` | 상담 대기열 조회 | 필요 | 수정완료 | 정혜영 |  |
+| [API-002](chat.md#api-002-상담-수락) | 상담 | PATCH | `/api/chats/{chatId}/accept` | 상담 수락 | 필요 | 수정완료 | 정혜영 |  |
+| [API-003](chat.md#api-003-상담-상세-조회) | 상담 | GET | `/api/chats/{chatId}` | 상담 상세 조회 | 필요 | 수정완료 | 정혜영 |  |
+| [API-004](chat.md#api-004-상담-메시지-조회) | 채팅 | GET | `/api/chats/{chatId}/messages` | 상담 메시지 조회 | 필요 | 수정완료 | 정혜영 |  |
 | [API-005](chat.md#api-005-실시간-메시지-전송) | 채팅 | WebSocket | `/app/chats/{chatId}/messages` | 실시간 메시지 전송 | 필요 | 수정완료 | 정혜영 |  |
-| [API-006](chat.md#api-006-상담-종료) | 상담 | PATCH | `/api/v1/chats/{chatId}/close` | 상담 종료 | 필요 | 수정완료 | 정혜영 |  |
-| [API-007](chat.md#api-007-ai-응대-내역-조회) | 상담 | GET | `/api/v1/chats/{chatId}/ai-messages` | AI 응대 내역 조회 | 필요 | 수정완료 | 정혜영 |  |
-| [API-008](chat.md#api-008-상담원-회복-시간-조회) | 상담원 | GET | `/api/v1/agents/me/recovery` | 상담원 회복 시간 조회 | 필요 | 수정완료 | 정혜영 |  |
-| [CUS-01](customer-chat.md#cus-01-상담-시작) | 상담 | POST | `/api/v1/chats` | 상담 시작 | 필요 (CUSTOMER) | 작성완료 | 심소민 | 정지 고객 차단 포함 |
-| [CUS-02](customer-chat.md#cus-02-ai-상담-메시지-전송응답) | AI 상담 | POST | `/api/v1/chats/{chatId}/bot-messages` | AI 상담 메시지 전송·응답 | 필요 (CUSTOMER) | 작성완료 | 심소민 | AI 실패 시 FAQ 대체 |
-| [CUS-03](customer-chat.md#cus-03-상담원-연결-요청) | AI 상담 | PATCH | `/api/v1/chats/{chatId}/handoff` | 상담원 연결 요청 | 필요 (CUSTOMER) | 작성완료 | 심소민 | BOT → QUEUED |
-| [CUS-04](customer-chat.md#cus-04-고객-상담-종료-ai-응대대기-중) | 상담 | PATCH | `/api/v1/chats/{chatId}/cancel` | 고객 상담 종료 (AI 응대·대기 중) | 필요 (CUSTOMER) | 작성완료 | 심소민 | ConsultationClosedEvent 발행 |
-| [CUS-05](customer-chat.md#cus-05-ai-목업-모드-변경) | AI 상담 | PATCH | `/api/v1/dev/ai-mock-mode` | AI 목업 모드 변경 | 필요 (ADMIN) | 작성완료 | 심소민 | should, 시연용 |
+| [API-006](chat.md#api-006-상담-종료) | 상담 | PATCH | `/api/chats/{chatId}/close` | 상담 종료 | 필요 | 수정완료 | 정혜영 |  |
+| [API-007](chat.md#api-007-ai-응대-내역-조회) | 상담 | GET | `/api/chats/{chatId}/ai-messages` | AI 응대 내역 조회 | 필요 | 수정완료 | 정혜영 |  |
+| [API-008](chat.md#api-008-상담원-회복-시간-조회) | 상담원 | GET | `/api/agents/me/recovery` | 상담원 회복 시간 조회 | 필요 | 수정완료 | 정혜영 |  |
+| [CUS-01](customer-chat.md#cus-01-상담-시작) | 상담 | POST | `/api/chats` | 상담 시작 | 필요 (CUSTOMER) | 작성완료 | 심소민 | 정지 고객 차단 포함 |
+| [CUS-02](customer-chat.md#cus-02-ai-상담-메시지-전송응답) | AI 상담 | POST | `/api/chats/{chatId}/bot-messages` | AI 상담 메시지 전송·응답 | 필요 (CUSTOMER) | 작성완료 | 심소민 | AI 실패 시 FAQ 대체 |
+| [CUS-03](customer-chat.md#cus-03-상담원-연결-요청) | AI 상담 | PATCH | `/api/chats/{chatId}/handoff` | 상담원 연결 요청 | 필요 (CUSTOMER) | 작성완료 | 심소민 | BOT → QUEUED |
+| [CUS-04](customer-chat.md#cus-04-고객-상담-종료-ai-응대대기-중) | 상담 | PATCH | `/api/chats/{chatId}/cancel` | 고객 상담 종료 (AI 응대·대기 중) | 필요 (CUSTOMER) | 작성완료 | 심소민 | ConsultationClosedEvent 발행 |
+| [CUS-05](customer-chat.md#cus-05-ai-목업-모드-변경) | AI 상담 | PATCH | `/api/dev/ai-mock-mode` | AI 목업 모드 변경 | 필요 (ADMIN) | 작성완료 | 심소민 | should, 시연용 |
 | [HIS-01](history.md#his-01-내-상담-이력-목록) | 상담 이력 | GET | `/api/customers/me/consultations` | 내 상담 이력 목록 | 필요 | 작성완료 | 유능한 |  |
 | [HIS-02](history.md#his-02-내-이용-상태제재-조회) | 상담 이력 | GET | `/api/customers/me/sanction` | 내 이용 상태(제재) 조회 | 필요 | 작성완료 | 유능한 |  |
 | [HIS-03](history.md#his-03-응대-고객별-이력) | 상담 이력 | GET | `/api/agents/me/customers` | 응대 고객별 이력 | 필요 | 작성완료 | 유능한 |  |

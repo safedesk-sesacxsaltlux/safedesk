@@ -23,7 +23,7 @@
 | API ID | HIS-01 |
 | 기능 | 내 상담 이력 목록 |
 | Method | GET |
-| URL | /api/v1/customers/me/consultations |
+| URL | /api/customers/me/consultations |
 | 사용 화면 | 고객 메인(최근 상담), 내 상담 이력 |
 | 호출 시점 | 화면 진입, 탭(전체·AI 응대·상담원 연결) 변경, 더 보기 클릭 시 |
 | 인증 필요 | 예 (CUSTOMER) |
@@ -108,7 +108,7 @@
 | API ID | HIS-02 |
 | 기능 | 내 이용 상태(제재) 조회 |
 | Method | GET |
-| URL | /api/v1/customers/me/sanction |
+| URL | /api/customers/me/sanction |
 | 사용 화면 | 고객 메인(내 이용 상태), 이용정지 안내, 상담 종료 결과 |
 | 호출 시점 | 고객 메인·이용정지 안내 화면 진입, 상태 다시 확인 클릭 시 |
 | 인증 필요 | 예 (CUSTOMER, 정지 고객 포함) |
@@ -179,7 +179,7 @@
 | API ID | HIS-03 |
 | 기능 | 응대 고객별 이력 |
 | Method | GET |
-| URL | /api/v1/agents/me/customers |
+| URL | /api/agents/me/customers |
 | 사용 화면 | 상담원 내 상담 이력 |
 | 호출 시점 | 화면 진입, 조회 버튼 클릭, 페이지 이동 시 |
 | 인증 필요 | 예 (AGENT) |
@@ -276,7 +276,7 @@
 | API ID | HIS-04 |
 | 기능 | 내가 맡은 상담 목록 |
 | Method | GET |
-| URL | /api/v1/agents/me/consultations |
+| URL | /api/agents/me/consultations |
 | 사용 화면 | 상담원 내 상담 이력(고객 행 선택 시) |
 | 호출 시점 | HIS-03 목록에서 고객 행을 클릭했을 때 |
 | 인증 필요 | 예 (AGENT) |
@@ -356,7 +356,7 @@
 | API ID | HIS-05 |
 | 기능 | 전체 상담 이력 |
 | Method | GET |
-| URL | /api/v1/admin/consultations |
+| URL | /api/admin/consultations |
 | 사용 화면 | 관리자 상담 이력 |
 | 호출 시점 | 화면 진입, 조회 버튼 클릭, 페이지 이동 시 |
 | 인증 필요 | 예 (ADMIN) |
@@ -445,7 +445,7 @@
 | API ID | HIS-06 |
 | 기능 | 상담 상세 |
 | Method | GET |
-| URL | /api/v1/consultations/{consultationId}/history |
+| URL | /api/consultations/{consultationId}/history |
 | 사용 화면 | 상담 상세(고객·상담원·관리자), 고객 내 상담 이력 카드 펼치기 |
 | 호출 시점 | 이력 목록에서 상세 클릭 또는 카드 펼칠 때 |
 | 인증 필요 | 예 (CUSTOMER, AGENT, ADMIN) |
@@ -562,7 +562,7 @@
 | API ID | HIS-07 |
 | 기능 | 운영 대시보드 |
 | Method | GET |
-| URL | /api/v1/admin/dashboard |
+| URL | /api/admin/dashboard |
 | 사용 화면 | 관리자 대시보드(운영 현황·통계) |
 | 호출 시점 | 화면 진입, 기간 탭(오늘·7일·30일) 변경 시 |
 | 인증 필요 | 예 (ADMIN) |
