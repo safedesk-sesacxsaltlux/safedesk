@@ -41,7 +41,7 @@
 | --- | --- | --- |
 | AI_CHAT | AI가 응대 중 | QUEUED(연결 요청), CLOSED(고객 종료) |
 | QUEUED | 상담원 연결 대기 중 | IN_PROGRESS(상담원 수락), CLOSED(고객 종료) |
-| IN_PROGRESS | 상담원과 상담 중 | CLOSED(고객·상담원 정상 종료), TERMINATED(폭언 자동 종료, 상담원 폭언 종료) |
+| IN_PROGRESS | 상담원과 상담 중 | CLOSED(고객·상담원 종료), TERMINATED(폭언 자동 종료, 상담원 폭언 종료) |
 | CLOSED | 종료됨 | 없음 |
 | TERMINATED | 폭언으로 강제 종료됨 | 없음 |
 
