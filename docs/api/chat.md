@@ -4,14 +4,14 @@
 
 | API ID | Method | URL | 기능명 | 분류 | 인증 | 상태 | 담당자 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| API-001 | GET | `/api/v1/chats/queue` | 상담 대기열 조회 | 상담 | 필요 | 수정완료 | 정혜영 |  |
-| API-002 | PATCH | `/api/v1/chats/{chatId}/accept` | 상담 수락 | 상담 | 필요 | 수정완료 | 정혜영 |  |
-| API-003 | GET | `/api/v1/chats/{chatId}` | 상담 상세 조회 | 상담 | 필요 | 수정완료 | 정혜영 |  |
-| API-004 | GET | `/api/v1/chats/{chatId}/messages` | 상담 메시지 조회 | 채팅 | 필요 | 수정완료 | 정혜영 |  |
+| API-001 | GET | `/api/chats/queue` | 상담 대기열 조회 | 상담 | 필요 | 수정완료 | 정혜영 |  |
+| API-002 | PATCH | `/api/chats/{chatId}/accept` | 상담 수락 | 상담 | 필요 | 수정완료 | 정혜영 |  |
+| API-003 | GET | `/api/chats/{chatId}` | 상담 상세 조회 | 상담 | 필요 | 수정완료 | 정혜영 |  |
+| API-004 | GET | `/api/chats/{chatId}/messages` | 상담 메시지 조회 | 채팅 | 필요 | 수정완료 | 정혜영 |  |
 | API-005 | WebSocket | `/app/chats/{chatId}/messages` | 실시간 메시지 전송 | 채팅 | 필요 | 수정완료 | 정혜영 |  |
-| API-006 | PATCH | `/api/v1/chats/{chatId}/close` | 상담 종료 | 상담 | 필요 | 수정완료 | 정혜영 |  |
-| API-007 | GET | `/api/v1/chats/{chatId}/ai-messages` | AI 응대 내역 조회 | 상담 | 필요 | 수정완료 | 정혜영 |  |
-| API-008 | GET | `/api/v1/agents/me/recovery` | 상담원 회복 시간 조회 | 상담원 | 필요 | 수정완료 | 정혜영 |  |
+| API-006 | PATCH | `/api/chats/{chatId}/close` | 상담 종료 | 상담 | 필요 | 수정완료 | 정혜영 |  |
+| API-007 | GET | `/api/chats/{chatId}/ai-messages` | AI 응대 내역 조회 | 상담 | 필요 | 수정완료 | 정혜영 |  |
+| API-008 | GET | `/api/agents/me/recovery` | 상담원 회복 시간 조회 | 상담원 | 필요 | 수정완료 | 정혜영 |  |
 
 ---
 
@@ -24,7 +24,7 @@
 | API ID | API-001 |
 | 기능 | 상담 대기열 조회 |
 | Method | GET |
-| URL | /api/v1/chats/queue |
+| URL | /api/chats/queue |
 | 사용 화면 | 상담원 콘솔 - 상담 대기열 |
 | 호출 시점 | 상담원이 대기열 화면에 진입하거나 목록을 새로고침할 때 |
 | 인증 필요 | 예 (AGENT) |
@@ -110,7 +110,7 @@
 | API ID | API-002 |
 | 기능 | 상담 수락 |
 | Method | PATCH |
-| URL | /api/v1/chats/{chatId}/accept |
+| URL | /api/chats/{chatId}/accept |
 | 사용 화면 | 상담원 콘솔 - 상담 대기열 |
 | 호출 시점 | 상담원이 대기 중인 상담의 수락 버튼을 클릭할 때 |
 | 인증 필요 | 예 (AGENT) |
@@ -221,7 +221,7 @@
 | API ID | API-003 |
 | 기능 | 상담 상세 조회 |
 | Method | GET |
-| URL | /api/v1/chats/{chatId} |
+| URL | /api/chats/{chatId} |
 | 사용 화면 | 상담원 콘솔 - 상담 상세 화면 |
 | 호출 시점 | 상담원이 수락한 상담의 상세 화면에 진입할 때 |
 | 인증 필요 | 예 (AGENT) |
@@ -334,7 +334,7 @@
 | API ID | API-004 |
 | 기능 | 상담 메시지 내역 조회 |
 | Method | GET |
-| URL | /api/v1/chats/{chatId}/messages |
+| URL | /api/chats/{chatId}/messages |
 | 사용 화면 | 상담원 콘솔 - 실시간 상담 채팅 화면 |
 | 호출 시점 | 상담원이 상담 채팅 화면에 진입하여 기존 메시지 내역을 불러올 때 |
 | 인증 필요 | 예 (AGENT) |
@@ -632,7 +632,7 @@ WebSocket/STOMP 메시지 처리에는 REST API의 HTTP 상태 코드를 그대�
 | API ID | API-006 |
 | 기능 | 상담 종료 |
 | Method | PATCH |
-| URL | /api/v1/chats/{chatId}/close |
+| URL | /api/chats/{chatId}/close |
 | 사용 화면 | 상담원 콘솔 - 실시간 상담 화면 |
 | 호출 시점 | 상담원이 상담 종료 버튼을 클릭할 때 또는 폭언 자동 종료 기능과 연동할 때 |
 | 인증 필요 | 예 (AGENT), 자동 종료 시 내부 서비스 권한 확인 필요 |
@@ -766,7 +766,7 @@ WebSocket/STOMP 메시지 처리에는 REST API의 HTTP 상태 코드를 그대�
 | API ID | API-007 |
 | 기능 | AI 메시지 조회 |
 | Method | GET |
-| URL | /api/v1/chats/{chatId}/ai-messages |
+| URL | /api/chats/{chatId}/ai-messages |
 | 사용 화면 | 상담원 콘솔 - 상담 채팅 화면 |
 | 호출 시점 | 상담원이 고객 상담을 수락하고 AI 1차 응대 내역을 확인할 때 |
 | 인증 필요 | 예 (AGENT) |
@@ -894,7 +894,7 @@ WebSocket/STOMP 메시지 처리에는 REST API의 HTTP 상태 코드를 그대�
 | API ID | API-008 |
 | 기능 | 상담원 회복시간 조회 |
 | Method | GET |
-| URL | /api/v1/agents/me/recovery |
+| URL | /api/agents/me/recovery |
 | 사용 화면 | 상담원 콘솔 - 상담 대기열 및 상담원 상태 화면 |
 | 호출 시점 | 상담원이 콘솔에 진입하거나, 상담 종료 후 회복시간 상태를 확인할 때 |
 | 인증 필요 | 예 (AGENT) |

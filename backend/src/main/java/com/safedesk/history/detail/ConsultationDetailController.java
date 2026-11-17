@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/consultations")
+@RequestMapping("/api/consultations")
 public class ConsultationDetailController {
 
     private static final String ROLE_PREFIX = "ROLE_";
