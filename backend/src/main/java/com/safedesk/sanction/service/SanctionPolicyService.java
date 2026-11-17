@@ -52,9 +52,13 @@ public class SanctionPolicyService {
         int second = request.suspensionDays().second();
         int third = request.suspensionDays().thirdOrMore();
 
-        if (!inRange(warn, 1, 5) || !inRange(close, 1, 5) || close <= warn
+        if (!inRange(warn, 1, 5) || !inRange(close, 1, 5)
             || !inRange(first, 1, 365) || !inRange(second, 1, 365) || !inRange(third, 1, 365)) {
             throw new BusinessException(ErrorCode.INVALID_POLICY_VALUE);
+        }
+        if (close <= warn) {
+            throw new BusinessException(ErrorCode.INVALID_POLICY_VALUE,
+                "자동 종료 기준은 경고 발송 기준보다 커야 합니다.");
         }
 
         SanctionPolicy current = sanctionPolicyRepository.findFirstByOrderByPolicyIdDesc()
