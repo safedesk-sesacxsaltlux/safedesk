@@ -1,7 +1,10 @@
 package com.safedesk.chat.service;
 
 import com.safedesk.chat.dto.CancelResponseDTO;
+import com.safedesk.chat.dto.ChatStartResponseDTO;
 import com.safedesk.chat.dto.HandoffResponseDTO;
+import com.safedesk.chat.dto.OpenChatDTO;
+import com.safedesk.chat.dto.SanctionNoticeDTO;
 import com.safedesk.chat.entity.CloseReason;
 import com.safedesk.chat.entity.Consultation;
 import com.safedesk.chat.entity.ConsultationStatus;
@@ -10,25 +13,83 @@ import com.safedesk.chat.repository.CustomerConsultationRepository;
 import com.safedesk.common.event.ConsultationClosedEvent;
 import com.safedesk.common.exception.BusinessException;
 import com.safedesk.common.exception.ErrorCode;
+import com.safedesk.sanction.entity.SanctionPolicy;
+import com.safedesk.sanction.repository.SanctionPolicyRepository;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 @Service
 public class CustomerChatService {
+    // 아직 끝나지 않은 상담. 이 상태의 상담이 있으면 새 상담을 만들지 않는다
+    private static final List<String> OPEN_STATUSES =
+        List.of(ConsultationStatus.AI_CHAT, ConsultationStatus.QUEUED, ConsultationStatus.IN_PROGRESS);
+    private static final DateTimeFormatter RELEASE_AT_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+
     private final ConsultationRepository consultationRepository;
     private final CustomerConsultationRepository customerConsultationRepository;   // CUS-04 조건부 UPDATE
     private final ApplicationEventPublisher eventPublisher;                         // CUS-04 종료 이벤트 발행
+    private final SanctionPolicyRepository sanctionPolicyRepository;               // CUS-01 새 상담에 넣을 정책
 
     // 생성자 주입
     public CustomerChatService(ConsultationRepository consultationRepository,
                                CustomerConsultationRepository customerConsultationRepository,
-                               ApplicationEventPublisher eventPublisher) {
+                               ApplicationEventPublisher eventPublisher,
+                               SanctionPolicyRepository sanctionPolicyRepository) {
         this.consultationRepository = consultationRepository;
         this.customerConsultationRepository = customerConsultationRepository;
         this.eventPublisher = eventPublisher;
+        this.sanctionPolicyRepository = sanctionPolicyRepository;
+    }
+
+    // CUS-01 상담 시작
+    @Transactional
+    public ChatStartResponseDTO start(long customerId) {
+        // 같은 고객의 동시 요청을 줄 세운다. 회원이 없으면 토큰은 맞지만 탈퇴·삭제된 계정
+        customerConsultationRepository.lockCustomer(customerId)
+            .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
+
+        // 정지 확인을 진행 중 상담 확인보다 먼저 한다.
+        // 순서가 바뀌면 정지 고객이 정지 사실을 모른 채 기존 상담 화면으로 이동한다.
+        LocalDateTime now = LocalDateTime.now();
+        customerConsultationRepository.findActiveSanction(customerId, now)
+            .ifPresent(sanction -> {
+                throw new BusinessException(
+                    ErrorCode.CUSTOMER_SANCTIONED,
+                    ErrorCode.CUSTOMER_SANCTIONED.getMessage() + " "
+                        + sanction.getReleaseAt().format(RELEASE_AT_FORMAT) + "에 해제됩니다.",
+                    new SanctionNoticeDTO(toReason(sanction.getCloseReason()), sanction.getReleaseAt()));
+            });
+
+        // 기존 chatId 를 같이 준다. 없으면 고객이 닫을 수 없는 상담에 묶여 새 상담도 못 연다.
+        customerConsultationRepository.findFirstByCustomerIdAndStatusIn(customerId, OPEN_STATUSES)
+            .ifPresent(open -> {
+                throw new BusinessException(
+                    ErrorCode.CHAT_ALREADY_OPEN,
+                    ErrorCode.CHAT_ALREADY_OPEN.getMessage(),
+                    new OpenChatDTO(open.getConsultationId(), open.getStatus()));
+            });
+
+        // 시작 시점의 정책을 상담에 고정한다. 관리자가 정책을 바꿔도 진행 중 상담에는 적용하지 않는다 (체크리스트 S3)
+        Long policyId = sanctionPolicyRepository.findFirstByOrderByPolicyIdDesc()
+            .map(SanctionPolicy::getPolicyId)
+            .orElse(null);
+
+        // 첫 인사말은 저장하지 않는다. 아무 말 없이 나간 상담이 요약·통계에 잡히지 않게 (화면 고정 문구)
+        Consultation saved = consultationRepository.save(Consultation.start(customerId, policyId));
+        return new ChatStartResponseDTO(saved.getConsultationId(), saved.getStatus(), saved.getCreatedAt());
+    }
+
+    // 정지 안내 문구 (HIS-02 currentSanction.reason 과 같은 기준)
+    private String toReason(String closeReason) {
+        if (CloseReason.ABUSE_MANUAL.equals(closeReason)) {
+            return "상담 중 폭언 (상담원 종료)";
+        }
+        return "상담 중 반복 폭언 (자동 종료)";
     }
 
     @Transactional
