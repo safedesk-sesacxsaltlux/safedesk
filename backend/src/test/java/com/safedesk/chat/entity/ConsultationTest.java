@@ -2,6 +2,7 @@
 package com.safedesk.chat.entity;
 
 import com.safedesk.common.exception.BusinessException;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
@@ -21,7 +22,8 @@ public class ConsultationTest {
     }
 
     @Test
-    void AI_상담을_대기열로_전환한다() throws Exception {
+    @DisplayName("AI 상담을 대기열로 전환한다")
+    void handoffToQueue() throws Exception {
         Consultation consultation = createConsultation(ConsultationStatus.AI_CHAT);
 
         consultation.handoff();
@@ -31,7 +33,8 @@ public class ConsultationTest {
     }
 
     @Test
-    void 대기_상담을_수락한다() throws Exception {
+    @DisplayName("대기 중인 상담을 수락한다")
+    void acceptQueued() throws Exception {
         Consultation consultation = createConsultation(ConsultationStatus.QUEUED);
 
         consultation.accept(10L);
@@ -42,7 +45,8 @@ public class ConsultationTest {
     }
 
     @Test
-    void 진행_중인_상담을_정상_종료한다() throws Exception {
+    @DisplayName("진행 중인 상담을 정상 종료한다")
+    void closeInProgress() throws Exception {
         Consultation consultation = createConsultation(ConsultationStatus.IN_PROGRESS);
 
         boolean result = consultation.close(ClosedBy.AGENT, CloseReason.NORMAL);
@@ -50,10 +54,14 @@ public class ConsultationTest {
         assertThat(result).isTrue();
         assertThat(consultation.getStatus()).isEqualTo(ConsultationStatus.CLOSED);
         assertThat(consultation.getClosedAt()).isNotNull();
+
+        assertThat(consultation.getClosedBy()).isEqualTo(ClosedBy.AGENT);
+        assertThat(consultation.getCloseReason()).isEqualTo(CloseReason.NORMAL);
     }
 
     @Test
-    void 진행_중인_상담을_강제_종료한다() throws Exception {
+    @DisplayName("진행 중인 상담을 강제 종료한다")
+    void terminateInProgress() throws Exception {
         Consultation consultation = createConsultation(ConsultationStatus.IN_PROGRESS);
 
         boolean result = consultation.terminate(ClosedBy.SYSTEM, CloseReason.ABUSE_AUTO);
@@ -61,10 +69,14 @@ public class ConsultationTest {
         assertThat(result).isTrue();
         assertThat(consultation.getStatus()).isEqualTo(ConsultationStatus.TERMINATED);
         assertThat(consultation.getClosedAt()).isNotNull();
+
+        assertThat(consultation.getClosedBy()).isEqualTo(ClosedBy.SYSTEM);
+        assertThat(consultation.getCloseReason()).isEqualTo(CloseReason.ABUSE_AUTO);
     }
 
     @Test
-    void 대기_상태가_아니면_수락할_수_없다() throws Exception {
+    @DisplayName("진행 중인 상담은 다시 수락할 수 없다")
+    void rejectAcceptInProgress() throws Exception {
         Consultation consultation = createConsultation(ConsultationStatus.IN_PROGRESS);
 
         assertThatThrownBy(() -> consultation.accept(10L))
@@ -72,7 +84,8 @@ public class ConsultationTest {
     }
 
     @Test
-    void 이미_종료된_상담은_다시_종료하지_않는다() throws Exception {
+    @DisplayName("이미 종료된 상담은 다시 종료하지 않는다")
+    void closeAlreadyClosed() throws Exception {
         Consultation consultation = createConsultation(ConsultationStatus.CLOSED);
 
         boolean result = consultation.close(ClosedBy.AGENT, CloseReason.NORMAL);
@@ -82,7 +95,8 @@ public class ConsultationTest {
     }
 
     @Test
-    void 이미_강제_종료된_상담은_중복_종료하지_않는다() throws Exception {
+    @DisplayName("이미 강제 종료된 상담은 중복 종료하지 않는다")
+    void terminateAlreadyTerminated() throws Exception {
         Consultation consultation = createConsultation(ConsultationStatus.TERMINATED);
 
         boolean result = consultation.terminate(ClosedBy.SYSTEM, CloseReason.ABUSE_AUTO);
@@ -92,7 +106,8 @@ public class ConsultationTest {
     }
 
     @Test
-    void 진행_중이_아니면_강제_종료할_수_없다() throws Exception {
+    @DisplayName("대기 중인 상담은 강제 종료할 수 없다")
+    void rejectTerminateQueued() throws Exception {
         Consultation consultation = createConsultation(ConsultationStatus.QUEUED);
 
         assertThatThrownBy(() -> consultation.terminate(ClosedBy.SYSTEM, CloseReason.ABUSE_AUTO))
@@ -100,7 +115,8 @@ public class ConsultationTest {
     }
 
     @Test
-    void 처음_매칭된_FAQ와_문의_유형을_저장한다() throws Exception {
+    @DisplayName("처음 매칭된 FAQ와 문의 유형을 저장한다")
+    void recordFirstFaqMatch() throws Exception {
         Consultation consultation = createConsultation(ConsultationStatus.AI_CHAT);
 
         consultation.recordFirstFaqMatch(1L, "상하수도");
@@ -110,7 +126,8 @@ public class ConsultationTest {
     }
 
     @Test
-    void 두_번째_매칭부터는_덮어쓰지_않는다() throws Exception {
+    @DisplayName("두 번째 FAQ 매칭부터는 기존 정보를 덮어쓰지 않는다")
+    void doNotOverwriteFirstFaqMatch() throws Exception {
         Consultation consultation = createConsultation(ConsultationStatus.AI_CHAT);
         consultation.recordFirstFaqMatch(1L, "상하수도");
 
