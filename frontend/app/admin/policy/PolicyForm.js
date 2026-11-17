@@ -15,10 +15,28 @@ function toForm(policy) {
   };
 }
 
+function toNumber(value) {
+  return value === "" ? null : Number(value);
+}
+
+function toRequest(form) {
+  return {
+    warningThreshold: toNumber(form.warningThreshold),
+    autoCloseThreshold: toNumber(form.autoCloseThreshold),
+    suspensionDays: {
+      first: toNumber(form.first),
+      second: toNumber(form.second),
+      thirdOrMore: toNumber(form.thirdOrMore),
+    },
+  };
+}
+
 export default function PolicyForm() {
   const [status, setStatus] = useState("loading");
   const [form, setForm] = useState(null);
   const [defaults, setDefaults] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -51,10 +69,38 @@ export default function PolicyForm() {
   function change(e) {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+    setMessage(null);
   }
 
   function resetToDefaults() {
     setForm(defaults);
+    setMessage(null);
+  }
+
+  async function save() {
+    setSaving(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/policies`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${getAccessToken()}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(toRequest(form)),
+      });
+      const body = await res.json();
+      if (!res.ok || !body.success) {
+        setMessage({ type: "error", text: body.message });
+        return;
+      }
+      setForm(toForm(body.data));
+      setMessage({ type: "ok", text: body.message });
+    } catch {
+      setMessage({ type: "error", text: "저장하지 못했습니다. 잠시 후 다시 시도해주세요." });
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (status === "loading") {
@@ -120,10 +166,16 @@ export default function PolicyForm() {
         </div>
       </section>
 
-      <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
-        <button type="button" className="btn" onClick={resetToDefaults}>기본값으로 되돌리기</button>
-        <button type="button" className="btn btn-primary" style={{ background: "var(--admin)", borderColor: "var(--admin)" }}>
-          저장
+      <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", alignItems: "center", flexWrap: "wrap" }}>
+        {message && (
+          <span className={message.type === "error" ? "msg-err" : "small muted"} role="status">
+            {message.text}
+          </span>
+        )}
+        <button type="button" className="btn" onClick={resetToDefaults} disabled={saving}>기본값으로 되돌리기</button>
+        <button type="button" className="btn btn-primary" onClick={save} disabled={saving}
+          style={{ background: "var(--admin)", borderColor: "var(--admin)" }}>
+          {saving ? "저장 중" : "저장"}
         </button>
       </div>
     </>
