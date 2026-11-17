@@ -50,6 +50,8 @@ public class CustomerChatService {
     @Transactional
     public ChatStartResponseDTO start(long customerId) {
         // 같은 고객의 동시 요청을 줄 세운다. 회원이 없으면 토큰은 맞지만 탈퇴·삭제된 계정
+        // ⚠️ 잠금은 반드시 이 트랜잭션의 첫 쿼리여야 한다. MySQL(REPEATABLE READ)은 첫 일반 조회 때 스냅샷을 고정하므로,
+        //    잠금보다 먼저 조회가 있으면 뒤 요청이 앞 요청이 커밋한 상담을 못 보고 상담이 두 개 생긴다.
         customerConsultationRepository.lockCustomer(customerId)
             .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
 

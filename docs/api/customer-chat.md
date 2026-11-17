@@ -24,7 +24,7 @@
 | URL | /api/chats |
 | 사용 화면 | SCR-004 고객 메인 (상담 시작 버튼) |
 | 인증 필요 | 예 (CUSTOMER) |
-| 설명 | 고객의 새 상담을 BOT 상태로 만든다. 이용정지 고객과 진행 중 상담이 있는 고객은 서버에서 막는다. (REQ-004, REQ-022) |
+| 설명 | 고객의 새 상담을 AI_CHAT 상태로 만든다. 이용정지 고객과 진행 중 상담이 있는 고객은 서버에서 막는다. (REQ-004, REQ-022) |
 
 ### 요청
 
@@ -39,7 +39,7 @@ Request Body 없음. customerId는 JWT에서 꺼낸다.
   "success": true,
   "data": {
     "chatId": 12,
-    "status": "BOT",
+    "status": "AI_CHAT",
     "createdAt": "2026-11-11T10:00:00"
   },
   "message": "상담이 시작되었습니다."
@@ -50,17 +50,17 @@ Request Body 없음. customerId는 JWT에서 꺼낸다.
 
 1. JWT에서 customerId를 꺼낸다.
 2. 해제 일시가 현재보다 뒤인 제재가 있으면 403을 돌려준다.
-3. 상태가 BOT·QUEUED·ACTIVE인 상담이 있으면 409를 돌려준다.
-4. CONSULTATION을 status=BOT으로 저장한다.
+3. 상태가 AI_CHAT·QUEUED·IN_PROGRESS인 상담이 있으면 409를 돌려준다.
+4. CONSULTATION을 status=AI_CHAT으로 저장한다.
 
 ### 예외 상황
 
 | 상황 | HTTP | errorCode | 처리 |
 | --- | --- | --- | --- |
 | 비로그인 | 401 | UNAUTHORIZED | 로그인 화면으로 이동 |
-| 고객이 아닌 계정 | 403 | FORBIDDEN_ROLE | 접근 거부 |
+| 고객이 아닌 계정 | 403 | ACCESS_DENIED | 접근 거부 |
 | 이용정지 중 | 403 | CUSTOMER_SANCTIONED | data에 `reason`, `releaseAt`을 담는다. 프론트는 SCR-009로 이동 |
-| 진행 중 상담 있음 | 409 | CHAT_ALREADY_OPEN | data에 기존 `chatId`, `status`를 담는다. 프론트는 상태에 맞는 화면(BOT→SCR-005, QUEUED→SCR-006, ACTIVE→SCR-007)으로 이동 |
+| 진행 중 상담 있음 | 409 | CHAT_ALREADY_OPEN | data에 기존 `chatId`, `status`를 담는다. 프론트는 상태에 맞는 화면(AI_CHAT→SCR-005, QUEUED→SCR-006, IN_PROGRESS→SCR-007)으로 이동 |
 
 정지 안내 문구 예: "상담 중 폭언으로 이용이 정지되었습니다. {releaseAt}에 해제됩니다." 기간은 고정하지 않는다(2회차면 30일).
 
