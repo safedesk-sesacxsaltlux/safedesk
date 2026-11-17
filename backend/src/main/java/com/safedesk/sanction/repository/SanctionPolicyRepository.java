@@ -1,6 +1,8 @@
 package com.safedesk.sanction.repository;
 
 import com.safedesk.sanction.entity.SanctionPolicy;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
@@ -21,4 +23,8 @@ public interface SanctionPolicyRepository extends JpaRepository<SanctionPolicy, 
      * 상담 시작(CUS-01)에서도 새 상담에 넣을 정책을 고를 때 쓸 수 있다.
      */
     Optional<SanctionPolicy> findFirstByOrderByPolicyIdDesc();
+
+    Page<SanctionPolicy> findAllByOrderByPolicyIdDesc(Pageable pageable);
+
+    Optional<SanctionPolicy> findFirstByPolicyIdLessThanOrderByPolicyIdDesc(Long policyId);
 }

@@ -2,17 +2,25 @@ package com.safedesk.sanction.service;
 
 import com.safedesk.common.exception.BusinessException;
 import com.safedesk.common.exception.ErrorCode;
+import com.safedesk.common.response.PageResponse;
 import com.safedesk.member.repository.MemberRepository;
 import com.safedesk.sanction.dto.*;
 import com.safedesk.sanction.entity.SanctionPolicy;
 import com.safedesk.sanction.repository.SanctionPolicyRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 public class SanctionPolicyService {
 
     private static final long DEFAULT_POLICY_ID = 1L;
+    private static final int MAX_PAGE_SIZE = 50;
 
     private final SanctionPolicyRepository sanctionPolicyRepository;
     private final MemberRepository memberRepository;
@@ -64,6 +72,28 @@ public class SanctionPolicyService {
             SanctionPolicy.create(warn, close, first, second, third, adminId));
 
         return PolicyVersionDTO.of(saved, findAdmin(saved.getCreatedBy()));
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<PolicyHistoryDTO> getHistories(int page, int size) {
+        if (page < 0 || size < 1 || size > MAX_PAGE_SIZE) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+
+        Page<SanctionPolicy> policies = sanctionPolicyRepository.findAllByOrderByPolicyIdDesc(PageRequest.of(page, size));
+        List<SanctionPolicy> rows = policies.getContent();
+
+        List<PolicyHistoryDTO> histories = new ArrayList<>();
+        for (int i = 0; i < rows.size(); i++) {
+            SanctionPolicy policy = rows.get(i);
+            SanctionPolicy previous = (i + 1 < rows.size())
+                ? rows.get(i + 1)
+                : sanctionPolicyRepository.findFirstByPolicyIdLessThanOrderByPolicyIdDesc(policy.getPolicyId())
+                    .orElse(null);
+            histories.add(PolicyHistoryDTO.of(policy, previous, findAdmin(policy.getCreatedBy())));
+        }
+
+        return PageResponse.from(new PageImpl<>(histories, policies.getPageable(), policies.getTotalElements()));
     }
 
     private PolicyAdminDTO findAdmin(Long memberId) {
