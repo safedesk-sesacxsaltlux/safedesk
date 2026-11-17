@@ -1,5 +1,6 @@
 package com.safedesk.common.config;
 
+import com.safedesk.auth.jwt.JwtAccessDeniedHandler;
 import com.safedesk.auth.jwt.JwtAuthenticationEntryPoint;
 import com.safedesk.auth.jwt.JwtAuthenticationFilter;
 import com.safedesk.auth.jwt.JwtProvider;
@@ -27,12 +28,15 @@ public class SecurityConfig {
     private final JwtProvider jwtProvider;
     private final TokenBlacklist tokenBlacklist;
     private final JwtAuthenticationEntryPoint authenticationEntryPoint;
+    private final JwtAccessDeniedHandler accessDeniedHandler;
 
     public SecurityConfig(JwtProvider jwtProvider, TokenBlacklist tokenBlacklist,
-                          JwtAuthenticationEntryPoint authenticationEntryPoint) {
+                          JwtAuthenticationEntryPoint authenticationEntryPoint,
+                          JwtAccessDeniedHandler accessDeniedHandler) {
         this.jwtProvider = jwtProvider;
         this.tokenBlacklist = tokenBlacklist;
         this.authenticationEntryPoint = authenticationEntryPoint;
+        this.accessDeniedHandler = accessDeniedHandler;
     }
 
     @Bean
@@ -44,12 +48,15 @@ public class SecurityConfig {
                 .httpBasic(basic -> basic.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(new JwtAuthenticationFilter(jwtProvider, tokenBlacklist), UsernamePasswordAuthenticationFilter.class)
-                .exceptionHandling(exception -> exception.authenticationEntryPoint(authenticationEntryPoint))
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(authenticationEntryPoint)
+                        .accessDeniedHandler(accessDeniedHandler))
                 // 위에서부터 처음 맞는 규칙이 적용되므로, 인증이 필요한 /api/auth 경로를 /api/auth/** 보다 먼저 둔다.
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/me", "/api/auth/logout").authenticated()
                         // HIS-06 상담 상세: 로그인만 확인 (토큰 없으면 401). 본인 상담인지는 서비스에서 확인
                         .requestMatchers("/api/v1/consultations/*/history").authenticated()
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
                         // TODO(인증): API별 서버 권한 검사. docs/api 명세의 "인증" 열 기준으로 작성함.
                         //  주석 해제 전 확인할 것
