@@ -1,8 +1,13 @@
 package com.safedesk.moderation.service;
 
 import com.safedesk.chat.entity.Consultation;
+import com.safedesk.chat.entity.CloseReason;
+import com.safedesk.chat.entity.ClosedBy;
 import com.safedesk.chat.entity.ConsultationStatus;
 import com.safedesk.moderation.dto.AbuseFilterResult;
+import com.safedesk.moderation.dto.TerminationResult;
+import com.safedesk.common.event.ConsultationClosedEvent;
+import com.safedesk.sanction.dto.SanctionResult;
 import com.safedesk.moderation.dto.WarningResult;
 import com.safedesk.moderation.entity.AbuseLog;
 import com.safedesk.moderation.entity.AbuseStatus;
@@ -20,11 +25,15 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.context.ApplicationEventPublisher;
+import com.safedesk.sanction.service.SanctionService;
 
 import java.util.List;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -38,6 +47,8 @@ class ModerationServiceTest {
     private WarningRepository warningRepository;
     private SanctionPolicyRepository sanctionPolicyRepository;
     private ConsultationRepository consultationRepository;
+    private SanctionService sanctionService;
+    private ApplicationEventPublisher eventPublisher;
 
     @BeforeEach
     void setUp() {
@@ -49,13 +60,19 @@ class ModerationServiceTest {
         abuseLogRepository = mock(AbuseLogRepository.class);
         warningRepository = mock(WarningRepository.class);
         sanctionPolicyRepository = mock(SanctionPolicyRepository.class);
+        // 정책 조회는 default 메서드라 mock 이면 null 을 돌려준다. 실제 로직(findById → 최신 정책)을 타게 한다
+        when(sanctionPolicyRepository.findByIdOrLatest(any())).thenCallRealMethod();
         consultationRepository = mock(ConsultationRepository.class);
+        sanctionService = mock(SanctionService.class);
+        eventPublisher = mock(ApplicationEventPublisher.class);
         moderationService = new ModerationService(
             abuseFilter,
             abuseLogRepository,
             warningRepository,
             sanctionPolicyRepository,
-            consultationRepository
+            consultationRepository,
+            sanctionService,
+            eventPublisher
         );
     }
 
@@ -206,5 +223,77 @@ class ModerationServiceTest {
         SanctionPolicy policy = mock(SanctionPolicy.class);
         when(policy.getCloseThreshold()).thenReturn(closeThreshold);
         when(sanctionPolicyRepository.findById(policyId)).thenReturn(Optional.of(policy));
+    }
+
+    // ===== MOD-03 폭언 누적 자동 종료 =====
+
+    private static final LocalDateTime CLOSED_AT = LocalDateTime.of(2026, 11, 17, 14, 30);
+
+    @Test
+    @DisplayName("종료에 성공하면 위반·정지를 만들고 요약 이벤트를 1번 발행한다")
+    void terminateForAbuse_success() {
+        givenTerminatableConsultation(100L, 5L);
+        when(consultationRepository.terminateForAbuse(eq(1L), any())).thenReturn(1);
+        SanctionResult sanction = new SanctionResult(
+            201L, 100L, 1L, 301L, 7, CLOSED_AT, CLOSED_AT.plusDays(7));
+        when(sanctionService.recordViolationAndSuspend(anyLong(), anyLong(), any(), any())).thenReturn(sanction);
+
+        Optional<TerminationResult> result = moderationService.terminateForAbuse(1L);
+
+        // UPDATE 에 넘긴 종료 시각과 MOD-04 에 넘긴 정지 시작 시각이 같은 값이다 (REQ-021)
+        ArgumentCaptor<LocalDateTime> updateClosedAt = ArgumentCaptor.forClass(LocalDateTime.class);
+        verify(consultationRepository).terminateForAbuse(eq(1L), updateClosedAt.capture());
+        ArgumentCaptor<LocalDateTime> sanctionStartAt = ArgumentCaptor.forClass(LocalDateTime.class);
+        // 상담의 고객 ID·정책 ID 를 넘긴다
+        verify(sanctionService).recordViolationAndSuspend(eq(1L), eq(100L), eq(5L), sanctionStartAt.capture());
+        assertThat(sanctionStartAt.getValue()).isEqualTo(updateClosedAt.getValue());
+
+        verify(eventPublisher, times(1)).publishEvent(any(ConsultationClosedEvent.class));
+
+        assertThat(result).isPresent();
+        TerminationResult terminated = result.get();
+        assertThat(terminated.consultationId()).isEqualTo(1L);
+        assertThat(terminated.status()).isEqualTo(ConsultationStatus.TERMINATED);
+        assertThat(terminated.closeReason()).isEqualTo(CloseReason.ABUSE_AUTO);
+        assertThat(terminated.closedBy()).isEqualTo(ClosedBy.SYSTEM);
+        assertThat(terminated.closedAt()).isEqualTo(updateClosedAt.getValue());
+        assertThat(terminated.suspendDays()).isEqualTo(7);
+        assertThat(terminated.suspendEndAt()).isEqualTo(CLOSED_AT.plusDays(7));
+    }
+
+    @Test
+    @DisplayName("이미 종료된 상담이면 empty, 위반·이벤트를 만들지 않는다")
+    void terminateForAbuse_alreadyClosed() {
+        givenTerminatableConsultation(100L, 5L);
+        // 0행: 이미 종료됐거나 상담원이 먼저 종료한 경우
+        when(consultationRepository.terminateForAbuse(eq(1L), any())).thenReturn(0);
+
+        Optional<TerminationResult> result = moderationService.terminateForAbuse(1L);
+
+        assertThat(result).isEmpty();
+        verify(sanctionService, never()).recordViolationAndSuspend(anyLong(), anyLong(), any(), any());
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    @DisplayName("위반·정지 저장이 실패하면 예외가 그대로 올라가고 이벤트를 발행하지 않는다")
+    void terminateForAbuse_sanctionFailure_throws() {
+        // 여기서 예외를 삼키면 종료는 됐는데 정지가 없는 상태가 된다 (NFR-009)
+        givenTerminatableConsultation(100L, 5L);
+        when(consultationRepository.terminateForAbuse(eq(1L), any())).thenReturn(1);
+        RuntimeException dbError = new RuntimeException("DB 오류");
+        when(sanctionService.recordViolationAndSuspend(anyLong(), anyLong(), any(), any())).thenThrow(dbError);
+
+        assertThatThrownBy(() -> moderationService.terminateForAbuse(1L)).isSameAs(dbError);
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    // 상담 1번: 상담 중, 주어진 고객 ID·정책 ID
+    private void givenTerminatableConsultation(long customerId, Long policyId) {
+        Consultation consultation = mock(Consultation.class);
+        when(consultation.getStatus()).thenReturn(ConsultationStatus.IN_PROGRESS);
+        when(consultation.getCustomerId()).thenReturn(customerId);
+        when(consultation.getPolicyId()).thenReturn(policyId);
+        when(consultationRepository.findById(1L)).thenReturn(Optional.of(consultation));
     }
 }

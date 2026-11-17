@@ -13,6 +13,8 @@ import com.safedesk.chat.repository.ConsultationRepository;
 import com.safedesk.chat.repository.MessageRepository;
 import com.safedesk.common.event.ConsultationClosedEvent;
 import com.safedesk.moderation.dto.AbuseFilterResult;
+import com.safedesk.moderation.dto.ConsultationTerminatedMessage;
+import com.safedesk.moderation.dto.TerminationResult;
 import com.safedesk.moderation.dto.WarningIssuedMessage;
 import com.safedesk.moderation.dto.WarningResult;
 import com.safedesk.moderation.entity.AbuseLog;
@@ -27,6 +29,7 @@ import com.safedesk.common.exception.ErrorCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -408,5 +411,100 @@ public class ChatServiceTest {
         request.setSenderId(100L);
         request.setMessageContent("병신같네");
         return request;
+    }
+
+    // ===== MOD-03 폭언 누적 자동 종료 =====
+
+    @Test
+    @DisplayName("종료 기준에 도달하면 경고 알림 없이 종료 알림만 보낸다")
+    void abuseReachesThreshold_sendsTerminatedOnly() {
+
+        // 1. 준비
+        ConsultationRepository consultationRepository = mock(ConsultationRepository.class);
+        MessageRepository messageRepository = mock(MessageRepository.class);
+        SimpMessagingTemplate messagingTemplate = mock(SimpMessagingTemplate.class);
+        ModerationService moderationService = mock(ModerationService.class);
+        ChatService chatService = abusiveMessageSetUp(
+            consultationRepository, messageRepository, messagingTemplate, moderationService);
+
+        // 경고 2회, 종료 기준 2회 → 종료 대상
+        when(moderationService.applyAutoWarning(1L, 10L))
+            .thenReturn(Optional.of(new WarningResult(1L, 502L, 2, 2, true)));
+        LocalDateTime closedAt = LocalDateTime.of(2026, 11, 17, 14, 30);
+        when(moderationService.terminateForAbuse(1L)).thenReturn(Optional.of(new TerminationResult(
+            1L, ConsultationStatus.TERMINATED, CloseReason.ABUSE_AUTO, ClosedBy.SYSTEM,
+            closedAt, 7, closedAt.plusDays(7))));
+
+        // 2. 실행
+        chatService.sendMessage(1L, abusiveRequest());
+
+        // 3. 확인 - 발행 2번: 마스킹된 메시지 먼저, 종료 알림 다음. 경고 알림 없음
+        ArgumentCaptor<Object> payloadCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(messagingTemplate, times(2)).convertAndSend(eq("/topic/chats/1"), payloadCaptor.capture());
+
+        List<Object> payloads = payloadCaptor.getAllValues();
+        assertThat(payloads.get(0)).isInstanceOf(ChatMessageResponseDTO.class);
+        assertThat(payloads.get(1)).isInstanceOf(ConsultationTerminatedMessage.class);
+        verify(messagingTemplate, never()).convertAndSend(anyString(), any(WarningIssuedMessage.class));
+
+        ConsultationTerminatedMessage terminated = (ConsultationTerminatedMessage) payloads.get(1);
+        assertThat(terminated.getType()).isEqualTo("CONSULTATION_TERMINATED");
+        assertThat(terminated.getStatus()).isEqualTo("TERMINATED");
+        assertThat(terminated.getSuspendDays()).isEqualTo(7);
+        assertThat(terminated.getSuspendEndAt()).isEqualTo(closedAt.plusDays(7));
+        // 종료 안내 문구 (policy.md 6장), 원문이 섞이지 않음
+        assertThat(terminated.getReason())
+            .isEqualTo("반복된 폭언으로 상담이 종료되었습니다. 7일간 상담을 이용할 수 없습니다.");
+        assertThat(terminated.getReason()).doesNotContain("병신");
+    }
+
+    @Test
+    @DisplayName("이미 종료된 상담이면 종료 알림을 보내지 않는다")
+    void abuseReachesThreshold_alreadyClosed_sendsNothing() {
+
+        // 1. 준비
+        ConsultationRepository consultationRepository = mock(ConsultationRepository.class);
+        MessageRepository messageRepository = mock(MessageRepository.class);
+        SimpMessagingTemplate messagingTemplate = mock(SimpMessagingTemplate.class);
+        ModerationService moderationService = mock(ModerationService.class);
+        ChatService chatService = abusiveMessageSetUp(
+            consultationRepository, messageRepository, messagingTemplate, moderationService);
+
+        when(moderationService.applyAutoWarning(1L, 10L))
+            .thenReturn(Optional.of(new WarningResult(1L, 502L, 2, 2, true)));
+        // 상담원이 먼저 종료하는 등 이미 종료된 상담
+        when(moderationService.terminateForAbuse(1L)).thenReturn(Optional.empty());
+
+        // 2. 실행
+        chatService.sendMessage(1L, abusiveRequest());
+
+        // 3. 확인 - 마스킹된 메시지만 발행
+        verify(messagingTemplate, times(1)).convertAndSend(eq("/topic/chats/1"), any(ChatMessageResponseDTO.class));
+        verify(messagingTemplate, never()).convertAndSend(anyString(), any(ConsultationTerminatedMessage.class));
+        verify(messagingTemplate, never()).convertAndSend(anyString(), any(WarningIssuedMessage.class));
+    }
+
+    @Test
+    @DisplayName("종료 기준 전이면 자동 종료하지 않는다")
+    void abuseBelowThreshold_doesNotTerminate() {
+
+        // 1. 준비
+        ConsultationRepository consultationRepository = mock(ConsultationRepository.class);
+        MessageRepository messageRepository = mock(MessageRepository.class);
+        SimpMessagingTemplate messagingTemplate = mock(SimpMessagingTemplate.class);
+        ModerationService moderationService = mock(ModerationService.class);
+        ChatService chatService = abusiveMessageSetUp(
+            consultationRepository, messageRepository, messagingTemplate, moderationService);
+
+        // 경고 1회, 종료 기준 2회 → 아직 종료 아님
+        when(moderationService.applyAutoWarning(1L, 10L))
+            .thenReturn(Optional.of(new WarningResult(1L, 501L, 1, 2, false)));
+
+        // 2. 실행
+        chatService.sendMessage(1L, abusiveRequest());
+
+        // 3. 확인
+        verify(moderationService, never()).terminateForAbuse(anyLong());
+        verify(messagingTemplate, never()).convertAndSend(anyString(), any(ConsultationTerminatedMessage.class));
     }
 }
