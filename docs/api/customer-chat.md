@@ -4,11 +4,11 @@
 
 | API ID | Method | URL | 기능명 | 분류 | 인증 | 상태 | 담당자 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| CUS-01 | POST | `/api/v1/chats` | 상담 시작 | 상담 | 필요 (CUSTOMER) | 작성완료 | 심소민 | 정지 고객 차단 포함 |
-| CUS-02 | POST | `/api/v1/chats/{chatId}/bot-messages` | AI 상담 메시지 전송·응답 | AI 상담 | 필요 (CUSTOMER) | 작성완료 | 심소민 | AI 실패 시 FAQ 대체 |
-| CUS-03 | PATCH | `/api/v1/chats/{chatId}/handoff` | 상담원 연결 요청 | AI 상담 | 필요 (CUSTOMER) | 작성완료 | 심소민 | BOT → QUEUED |
-| CUS-04 | PATCH | `/api/v1/chats/{chatId}/cancel` | 고객 상담 종료 (AI 응대·대기 중) | 상담 | 필요 (CUSTOMER) | 작성완료 | 심소민 | ConsultationClosedEvent 발행 |
-| CUS-05 | PATCH | `/api/v1/dev/ai-mock-mode` | AI 목업 모드 변경 | AI 상담 | 필요 (ADMIN) | 작성완료 | 심소민 | should, 시연용 |
+| CUS-01 | POST | `/api/chats` | 상담 시작 | 상담 | 필요 (CUSTOMER) | 작성완료 | 심소민 | 정지 고객 차단 포함 |
+| CUS-02 | POST | `/api/chats/{chatId}/bot-messages` | AI 상담 메시지 전송·응답 | AI 상담 | 필요 (CUSTOMER) | 작성완료 | 심소민 | AI 실패 시 FAQ 대체 |
+| CUS-03 | PATCH | `/api/chats/{chatId}/handoff` | 상담원 연결 요청 | AI 상담 | 필요 (CUSTOMER) | 작성완료 | 심소민 | BOT → QUEUED |
+| CUS-04 | PATCH | `/api/chats/{chatId}/cancel` | 고객 상담 종료 (AI 응대·대기 중) | 상담 | 필요 (CUSTOMER) | 작성완료 | 심소민 | ConsultationClosedEvent 발행 |
+| CUS-05 | PATCH | `/api/dev/ai-mock-mode` | AI 목업 모드 변경 | AI 상담 | 필요 (ADMIN) | 작성완료 | 심소민 | should, 시연용 |
 
 ---
 
@@ -21,10 +21,10 @@
 | API ID | CUS-01 |
 | 기능 | 상담 시작 |
 | Method | POST |
-| URL | /api/v1/chats |
+| URL | /api/chats |
 | 사용 화면 | SCR-004 고객 메인 (상담 시작 버튼) |
 | 인증 필요 | 예 (CUSTOMER) |
-| 설명 | 고객의 새 상담을 BOT 상태로 만든다. 이용정지 고객과 진행 중 상담이 있는 고객은 서버에서 막는다. (REQ-004, REQ-022) |
+| 설명 | 고객의 새 상담을 AI_CHAT 상태로 만든다. 이용정지 고객과 진행 중 상담이 있는 고객은 서버에서 막는다. (REQ-004, REQ-022) |
 
 ### 요청
 
@@ -39,7 +39,7 @@ Request Body 없음. customerId는 JWT에서 꺼낸다.
   "success": true,
   "data": {
     "chatId": 12,
-    "status": "BOT",
+    "status": "AI_CHAT",
     "createdAt": "2026-11-11T10:00:00"
   },
   "message": "상담이 시작되었습니다."
@@ -50,17 +50,17 @@ Request Body 없음. customerId는 JWT에서 꺼낸다.
 
 1. JWT에서 customerId를 꺼낸다.
 2. 해제 일시가 현재보다 뒤인 제재가 있으면 403을 돌려준다.
-3. 상태가 BOT·QUEUED·ACTIVE인 상담이 있으면 409를 돌려준다.
-4. CONSULTATION을 status=BOT으로 저장한다.
+3. 상태가 AI_CHAT·QUEUED·IN_PROGRESS인 상담이 있으면 409를 돌려준다.
+4. CONSULTATION을 status=AI_CHAT으로 저장한다.
 
 ### 예외 상황
 
 | 상황 | HTTP | errorCode | 처리 |
 | --- | --- | --- | --- |
 | 비로그인 | 401 | UNAUTHORIZED | 로그인 화면으로 이동 |
-| 고객이 아닌 계정 | 403 | FORBIDDEN_ROLE | 접근 거부 |
+| 고객이 아닌 계정 | 403 | ACCESS_DENIED | 접근 거부 |
 | 이용정지 중 | 403 | CUSTOMER_SANCTIONED | data에 `reason`, `releaseAt`을 담는다. 프론트는 SCR-009로 이동 |
-| 진행 중 상담 있음 | 409 | CHAT_ALREADY_OPEN | data에 기존 `chatId`, `status`를 담는다. 프론트는 상태에 맞는 화면(BOT→SCR-005, QUEUED→SCR-006, ACTIVE→SCR-007)으로 이동 |
+| 진행 중 상담 있음 | 409 | CHAT_ALREADY_OPEN | data에 기존 `chatId`, `status`를 담는다. 프론트는 상태에 맞는 화면(AI_CHAT→SCR-005, QUEUED→SCR-006, IN_PROGRESS→SCR-007)으로 이동 |
 
 정지 안내 문구 예: "상담 중 폭언으로 이용이 정지되었습니다. {releaseAt}에 해제됩니다." 기간은 고정하지 않는다(2회차면 30일).
 
@@ -82,7 +82,7 @@ Request Body 없음. customerId는 JWT에서 꺼낸다.
 | API ID | CUS-02 |
 | 기능 | AI 상담 메시지 전송·응답 |
 | Method | POST |
-| URL | /api/v1/chats/{chatId}/bot-messages |
+| URL | /api/chats/{chatId}/bot-messages |
 | 사용 화면 | SCR-005 Mock AI 상담 |
 | 인증 필요 | 예 (CUSTOMER, 본인 상담만) |
 | 설명 | 고객 메시지를 저장하고 AI 게이트웨이(INT-02)로 답변을 만든다. AI가 실패하거나 10초를 넘기면 FAQ 키워드 매칭 답변으로 대신한다. 처음 매칭된 FAQ의 카테고리를 CONSULTATION에 저장해 INT-01 요약에 쓴다. (REQ-005, 006, 008 / NFR-006, 010) |
@@ -179,7 +179,7 @@ Request Body 없음. customerId는 JWT에서 꺼낸다.
 | API ID | CUS-03 |
 | 기능 | 상담원 연결 요청 |
 | Method | PATCH |
-| URL | /api/v1/chats/{chatId}/handoff |
+| URL | /api/chats/{chatId}/handoff |
 | 사용 화면 | SCR-005 Mock AI 상담 → SCR-006 연결 대기 |
 | 인증 필요 | 예 (CUSTOMER, 본인 상담만) |
 | 설명 | 상담을 BOT에서 QUEUED로 바꾸고 `queued_at`을 기록한다. 상담원 대기열(API-001)에 요청 시각 순으로 나타난다. `queued_at`은 INT-01의 처리 요약("상담원 연결 요청")에도 쓰인다. (REQ-007) |
@@ -227,7 +227,7 @@ Request Body 없음.
 
 - PATCH를 쓴다. 새 데이터가 아니라 기존 상담의 상태를 바꾼다. 정혜영 님의 수락(API-002)·종료(API-006)도 PATCH다.
 - 이미 QUEUED면 에러 대신 200을 준다. 버튼 연타나 재시도로 두 번 오는 요청은 정상이다. 그리고 `queued_at`을 덮어쓰지 않아야 대기 순서가 뒤로 밀리지 않는다.
-- 경로 이름을 `queue`가 아니라 `handoff`로 했다. 대기열 목록 `GET /api/v1/chats/queue`와 겹치지 않게 하기 위해서다.
+- 경로 이름을 `queue`가 아니라 `handoff`로 했다. 대기열 목록 `GET /api/chats/queue`와 겹치지 않게 하기 위해서다.
 
 ---
 
@@ -240,7 +240,7 @@ Request Body 없음.
 | API ID | CUS-04 |
 | 기능 | 고객 상담 종료 (AI 응대·대기 중) |
 | Method | PATCH |
-| URL | /api/v1/chats/{chatId}/cancel |
+| URL | /api/chats/{chatId}/cancel |
 | 사용 화면 | SCR-005 Mock AI 상담 (상담 종료 버튼), SCR-006 연결 대기 (대기 취소 버튼) |
 | 인증 필요 | 예 (CUSTOMER, 본인 상담만) |
 | 설명 | 상담원 연결 전 상담(BOT·QUEUED)을 고객이 끝낸다. 종료 사유를 기록하고 같은 트랜잭션에서 ConsultationClosedEvent를 발행한다. 상담원 연결 후(ACTIVE) 종료는 API-006이 맡는다. (REQ-013, INT-01 연계) |
@@ -313,7 +313,7 @@ publisher.publishEvent(new ConsultationClosedEvent(chatId));
 | API ID | CUS-05 |
 | 기능 | AI 목업 모드 변경 (should, 시연용) |
 | Method | PATCH |
-| URL | /api/v1/dev/ai-mock-mode |
+| URL | /api/dev/ai-mock-mode |
 | 사용 화면 | 없음 (시연 중 Postman 또는 관리자 화면에서 호출) |
 | 인증 필요 | 예 (ADMIN) |
 | 설명 | AI 목업의 동작을 정상·지연·오류 중 하나로 바꾼다. 서버를 재시작하지 않고 시나리오 3(AI 실패 시 FAQ 대체)을 시연하기 위한 API다. (REQ-006 검증) |
