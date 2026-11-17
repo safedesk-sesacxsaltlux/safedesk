@@ -3,29 +3,35 @@ package com.safedesk.moderation.service;
 import com.safedesk.chat.entity.Consultation;
 import com.safedesk.chat.entity.ConsultationStatus;
 import com.safedesk.chat.repository.ConsultationRepository;
+import com.safedesk.common.event.ConsultationClosedEvent;
 import com.safedesk.common.exception.BusinessException;
 import com.safedesk.common.exception.ErrorCode;
 import com.safedesk.moderation.dto.AbuseFilterResult;
+import com.safedesk.moderation.dto.TerminationResult;
 import com.safedesk.moderation.dto.WarningResult;
 import com.safedesk.moderation.entity.AbuseLog;
 import com.safedesk.moderation.entity.Warning;
 import com.safedesk.moderation.filter.AbuseFilter;
 import com.safedesk.moderation.repository.AbuseLogRepository;
 import com.safedesk.moderation.repository.WarningRepository;
+import com.safedesk.sanction.dto.SanctionResult;
 import com.safedesk.sanction.entity.SanctionPolicy;
 import com.safedesk.sanction.repository.SanctionPolicyRepository;
+import com.safedesk.sanction.service.SanctionService;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 /**
- * 폭언 판정·원문 저장·자동 경고 (MOD-01, MOD-02, docs/api/moderation.md).
+ * 폭언 판정·원문 저장·자동 경고·자동 종료 (MOD-01, MOD-02, MOD-03, docs/api/moderation.md).
  *
  * 메서드를 나눈 이유: abuse_log 에는 message_id 가 필요한데, 이 값은 메시지를 저장한 뒤에야 생긴다.
- * 그래서 ChatService 가 「① 판정 → 메시지 저장 → ② 원문 저장 → ③ 자동 경고」 순서로 호출한다.
+ * 그래서 ChatService 가 「① 판정 → 메시지 저장 → ② 원문 저장 → ③ 자동 경고 → ④ 자동 종료」 순서로 호출한다.
  *
  * @ Transactional 은 붙이지 않는다. ChatService.sendMessage() 의 트랜잭션 안에서 같이 실행된다.
- * 그래서 경고 저장이 실패하면 메시지·원문 저장까지 같이 롤백된다.
+ * 그래서 경고·종료·제재 저장이 실패하면 메시지·원문 저장까지 같이 롤백된다.
  */
 @Service
 public class ModerationService {
@@ -35,18 +41,24 @@ public class ModerationService {
     private final WarningRepository warningRepository;
     private final SanctionPolicyRepository sanctionPolicyRepository;
     private final ConsultationRepository consultationRepository;
+    private final SanctionService sanctionService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public ModerationService(
         AbuseFilter abuseFilter,
         AbuseLogRepository abuseLogRepository,
         WarningRepository warningRepository,
         SanctionPolicyRepository sanctionPolicyRepository,
-        ConsultationRepository consultationRepository) {
+        ConsultationRepository consultationRepository,
+        SanctionService sanctionService,
+        ApplicationEventPublisher eventPublisher) {
         this.abuseFilter = abuseFilter;
         this.abuseLogRepository = abuseLogRepository;
         this.warningRepository = warningRepository;
         this.sanctionPolicyRepository = sanctionPolicyRepository;
         this.consultationRepository = consultationRepository;
+        this.sanctionService = sanctionService;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -111,5 +123,41 @@ public class ModerationService {
             closeThreshold,
             warningCount >= closeThreshold
         ));
+    }
+
+    /**
+     * ④ 폭언 누적 자동 종료 (MOD-03). ChatService 가 applyAutoWarning() 결과의 shouldTerminate 가 true 일 때 호출한다.
+     *
+     * 경고 횟수를 다시 세지 않는다. MOD-02 의 shouldTerminate(AUTO + MANUAL, 상담 정책 기준)를 그대로 믿는다.
+     * 반환이 Optional 인 이유: 이미 종료된 상담이면 예외 없이 알려주려고 (예외를 던지면 메시지 저장까지 롤백된다).
+     *
+     * @return 종료했으면 결과(정지 일수 포함), 이미 종료된 상담이면 Optional.empty()
+     */
+    public Optional<TerminationResult> terminateForAbuse(long consultationId) {
+
+        // 1. 상담 조회 → 고객 ID·정책 ID 를 꺼내 둔다
+        //    2번의 UPDATE 가 영속성 컨텍스트를 비우므로(clearAutomatically) 그 「전」에 꺼내야 한다
+        Consultation consultation = consultationRepository.findById(consultationId)
+            .orElseThrow(() -> new BusinessException(ErrorCode.CHAT_NOT_FOUND));
+        long customerId = consultation.getCustomerId();
+        Long policyId = consultation.getPolicyId();
+
+        // 2. 조건부 UPDATE 로 종료. 종료 시각을 한 번만 만들어 UPDATE 와 MOD-04 에 같은 값을 넘긴다
+        //    0 행이면 이미 종료됐거나 상담원이 먼저 종료한 것 → 위반·이벤트 모두 만들지 않는다
+        LocalDateTime closedAt = LocalDateTime.now();
+        if (consultationRepository.terminateForAbuse(consultationId, closedAt) == 0) {
+            return Optional.empty();
+        }
+
+        // 3. 위반 기록·자동 정지 (MOD-04)
+        //    예외를 잡지 않는다. 실패하면 종료·메시지·경고까지 같이 롤백된다 (NFR-009)
+        SanctionResult sanctionResult =
+            sanctionService.recordViolationAndSuspend(consultationId, customerId, policyId, closedAt);
+
+        // 4. 상담 요약 이벤트 (INT-01). 수신 쪽이 AFTER_COMMIT 이라 롤백되면 요약도 실행되지 않는다
+        eventPublisher.publishEvent(new ConsultationClosedEvent(consultationId));
+
+        // 5. 결과 반환. ChatService 가 이 값으로 종료 알림을 보낸다
+        return Optional.of(TerminationResult.of(consultationId, closedAt, sanctionResult));
     }
 }
