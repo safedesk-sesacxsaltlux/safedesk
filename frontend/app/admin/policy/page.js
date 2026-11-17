@@ -16,12 +16,6 @@ export default function PolicyPage() {
         </div>
 
         <PolicyForm />
-
-        <section className="card stack gap-12">
-          <h2>변경 이력</h2>
-          <span className="small muted">YYYY.MM.DD HH:MM · [관리자명] · 누적 2회 정지 기간 변경</span>
-          <span className="small muted">YYYY.MM.DD HH:MM · [관리자명] · 기본 정책 등록</span>
-        </section>
       </main>
     </>
   );

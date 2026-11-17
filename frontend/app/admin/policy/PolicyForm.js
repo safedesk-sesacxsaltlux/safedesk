@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getAccessToken } from "../../_lib/auth";
+import PolicyHistory from "./PolicyHistory";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -37,6 +38,7 @@ export default function PolicyForm() {
   const [defaults, setDefaults] = useState(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
+  const [historyKey, setHistoryKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -96,6 +98,7 @@ export default function PolicyForm() {
       }
       setForm(toForm(body.data));
       setMessage({ type: "ok", text: body.message });
+      setHistoryKey((key) => key + 1);
     } catch {
       setMessage({ type: "error", text: "저장하지 못했습니다. 잠시 후 다시 시도해주세요." });
     } finally {
@@ -178,6 +181,8 @@ export default function PolicyForm() {
           {saving ? "저장 중" : "저장"}
         </button>
       </div>
+
+      <PolicyHistory key={historyKey} />
     </>
   );
 }
