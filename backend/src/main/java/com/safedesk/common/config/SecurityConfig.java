@@ -50,6 +50,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/me", "/api/auth/logout").authenticated()
                         // HIS-06 상담 상세: 로그인만 확인 (토큰 없으면 401). 본인 상담인지는 서비스에서 확인
                         .requestMatchers("/api/consultations/*/history").authenticated()
+                        // HIS-05 전체 상담 이력: 로그인만 확인 (토큰 없으면 401). 관리자인지는 컨트롤러에서 확인(403)
+                        .requestMatchers("/api/admin/consultations").authenticated()
 
                         // TODO(인증): API별 서버 권한 검사. docs/api 명세의 "인증" 열 기준으로 작성함.
                         //  주석 해제 전 확인할 것
