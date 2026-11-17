@@ -8,6 +8,7 @@ import com.safedesk.chat.entity.Consultation;
 import com.safedesk.common.exception.BusinessException;
 import com.safedesk.common.exception.ErrorCode;
 import com.safedesk.moderation.dto.AbuseFilterResult;
+import com.safedesk.moderation.dto.ConsultationTerminatedMessage;
 import com.safedesk.moderation.dto.WarningIssuedMessage;
 import com.safedesk.moderation.entity.AbuseLog;
 import com.safedesk.moderation.service.ModerationService;
@@ -125,8 +126,13 @@ public class ChatService {
                     // 종료 기준에 도달한 폭언(기본 2회째)에는 경고 대신 종료 알림만 가야 한다
                     if (!warning.shouldTerminate()) {
                         sendAfterCommit(topic, WarningIssuedMessage.from(warning));
+                    } else {
+                        // 종료 기준 도달 → 자동 종료(MOD-03). 이미 종료된 상담이면 empty 라서 아무것도 보내지 않는다
+                        // terminateForAbuse() 뒤에는 영속성 컨텍스트가 비워지므로 consultation·saved 엔티티를 다시 쓰지 않는다
+                        moderationService.terminateForAbuse(consultationId)
+                            .ifPresent(terminated ->
+                                sendAfterCommit(topic, ConsultationTerminatedMessage.from(terminated)));
                     }
-                    // TODO(MOD-03): shouldTerminate 면 terminateForAbuse() 호출. 종료 알림은 MOD-03 이 보낸다
                 });
         }
     }

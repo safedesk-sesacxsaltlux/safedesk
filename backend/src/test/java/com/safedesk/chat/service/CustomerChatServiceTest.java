@@ -1,27 +1,35 @@
 package com.safedesk.chat.service;
 
 import com.safedesk.chat.dto.CancelResponseDTO;
+import com.safedesk.chat.dto.ChatStartResponseDTO;
 import com.safedesk.chat.dto.HandoffResponseDTO;
+import com.safedesk.chat.dto.OpenChatDTO;
+import com.safedesk.chat.dto.SanctionNoticeDTO;
 import com.safedesk.chat.entity.CloseReason;
 import com.safedesk.chat.entity.ClosedBy;
 import com.safedesk.chat.entity.Consultation;
 import com.safedesk.chat.entity.ConsultationStatus;
+import com.safedesk.chat.repository.ActiveSanctionRow;
 import com.safedesk.chat.repository.ConsultationRepository;
 import com.safedesk.chat.repository.CustomerConsultationRepository;
 import com.safedesk.common.event.ConsultationClosedEvent;
 import com.safedesk.common.exception.BusinessException;
 import com.safedesk.common.exception.ErrorCode;
+import com.safedesk.sanction.entity.SanctionPolicy;
+import com.safedesk.sanction.repository.SanctionPolicyRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -36,6 +44,7 @@ class CustomerChatServiceTest {
     private ConsultationRepository consultationRepository;
     private CustomerConsultationRepository customerConsultationRepository;
     private ApplicationEventPublisher eventPublisher;
+    private SanctionPolicyRepository sanctionPolicyRepository;
     private CustomerChatService customerChatService;
 
     @BeforeEach   // 각 테스트 전에 매번 새로 준비 (테스트끼리 영향 안 주게)
@@ -43,9 +52,123 @@ class CustomerChatServiceTest {
         consultationRepository = mock(ConsultationRepository.class);
         customerConsultationRepository = mock(CustomerConsultationRepository.class);
         eventPublisher = mock(ApplicationEventPublisher.class);
+        sanctionPolicyRepository = mock(SanctionPolicyRepository.class);
         customerChatService = new CustomerChatService(
-            consultationRepository, customerConsultationRepository, eventPublisher);
+            consultationRepository, customerConsultationRepository, eventPublisher, sanctionPolicyRepository);
     }
+
+    // ===== CUS-01 상담 시작 =====
+
+    // 정지 없음, 진행 중 상담 없음, 최신 정책 7번인 고객
+    private void givenCanStart() {
+        when(customerConsultationRepository.lockCustomer(CUSTOMER_ID)).thenReturn(Optional.of(CUSTOMER_ID));
+        when(customerConsultationRepository.findActiveSanction(eq(CUSTOMER_ID), any())).thenReturn(Optional.empty());
+        when(customerConsultationRepository.findFirstByCustomerIdAndStatusIn(eq(CUSTOMER_ID), any()))
+            .thenReturn(Optional.empty());
+        SanctionPolicy policy = mock(SanctionPolicy.class);
+        when(policy.getPolicyId()).thenReturn(7L);
+        when(sanctionPolicyRepository.findFirstByOrderByPolicyIdDesc()).thenReturn(Optional.of(policy));
+        when(consultationRepository.save(any(Consultation.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    }
+
+    private ActiveSanctionRow sanctionRow(LocalDateTime releaseAt, String closeReason) {
+        ActiveSanctionRow row = mock(ActiveSanctionRow.class);
+        when(row.getReleaseAt()).thenReturn(releaseAt);
+        when(row.getCloseReason()).thenReturn(closeReason);
+        return row;
+    }
+
+    @Test
+    @DisplayName("상담 시작: 정지·진행 중 상담이 없으면 최신 정책으로 AI_CHAT 상담을 만든다")
+    void startWhenCanStart() {
+        // 준비
+        givenCanStart();
+
+        // 실행
+        ChatStartResponseDTO response = customerChatService.start(CUSTOMER_ID);
+
+        // 확인
+        assertThat(response.status()).isEqualTo(ConsultationStatus.AI_CHAT);
+        assertThat(response.createdAt()).isNotNull();
+        verify(consultationRepository).save(argThat(saved ->
+            saved.getCustomerId() == CUSTOMER_ID && Long.valueOf(7L).equals(saved.getPolicyId())));
+    }
+
+    @Test
+    @DisplayName("상담 시작: 정지 중이면 CUSTOMER_SANCTIONED, data 에 사유와 해제 일시")
+    void startWhenSanctioned() {
+        givenCanStart();
+        LocalDateTime releaseAt = LocalDateTime.of(2026, 11, 24, 14, 31);
+        ActiveSanctionRow row = sanctionRow(releaseAt, CloseReason.ABUSE_AUTO);
+        when(customerConsultationRepository.findActiveSanction(eq(CUSTOMER_ID), any())).thenReturn(Optional.of(row));
+
+        assertThatThrownBy(() -> customerChatService.start(CUSTOMER_ID))
+            .isInstanceOf(BusinessException.class)
+            .satisfies(e -> {
+                BusinessException be = (BusinessException) e;
+                assertThat(be.getErrorCode()).isEqualTo(ErrorCode.CUSTOMER_SANCTIONED);
+                assertThat(be.getMessage()).endsWith("2026-11-24 14:31에 해제됩니다.");
+                assertThat(be.getData()).isEqualTo(new SanctionNoticeDTO("상담 중 반복 폭언 (자동 종료)", releaseAt));
+            });
+        verify(consultationRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("상담 시작: 상담원 강제 종료로 정지됐으면 사유가 '상담원 종료'")
+    void startWhenSanctionedByAgent() {
+        givenCanStart();
+        ActiveSanctionRow row = sanctionRow(LocalDateTime.of(2026, 11, 24, 14, 31), CloseReason.ABUSE_MANUAL);
+        when(customerConsultationRepository.findActiveSanction(eq(CUSTOMER_ID), any())).thenReturn(Optional.of(row));
+
+        assertThatThrownBy(() -> customerChatService.start(CUSTOMER_ID))
+            .extracting(e -> ((SanctionNoticeDTO) ((BusinessException) e).getData()).reason())
+            .isEqualTo("상담 중 폭언 (상담원 종료)");
+    }
+
+    @Test
+    @DisplayName("상담 시작: 정지 중이면서 진행 중 상담도 있으면 정지를 먼저 알린다")
+    void startWhenSanctionedAndOpenChat() {
+        givenCanStart();
+        ActiveSanctionRow row = sanctionRow(LocalDateTime.of(2026, 11, 24, 14, 31), CloseReason.ABUSE_AUTO);
+        when(customerConsultationRepository.findActiveSanction(eq(CUSTOMER_ID), any())).thenReturn(Optional.of(row));
+        when(customerConsultationRepository.findFirstByCustomerIdAndStatusIn(eq(CUSTOMER_ID), any()))
+            .thenReturn(Optional.of(Consultation.start(CUSTOMER_ID, 1L)));
+
+        assertThatThrownBy(() -> customerChatService.start(CUSTOMER_ID))
+            .extracting("errorCode")
+            .isEqualTo(ErrorCode.CUSTOMER_SANCTIONED);
+    }
+
+    @Test
+    @DisplayName("상담 시작: 진행 중 상담이 있으면 CHAT_ALREADY_OPEN, data 에 기존 상담 상태")
+    void startWhenOpenChatExists() {
+        givenCanStart();
+        Consultation open = Consultation.start(CUSTOMER_ID, 1L);
+        open.handoff();   // QUEUED
+        when(customerConsultationRepository.findFirstByCustomerIdAndStatusIn(eq(CUSTOMER_ID), any()))
+            .thenReturn(Optional.of(open));
+
+        assertThatThrownBy(() -> customerChatService.start(CUSTOMER_ID))
+            .isInstanceOf(BusinessException.class)
+            .satisfies(e -> {
+                BusinessException be = (BusinessException) e;
+                assertThat(be.getErrorCode()).isEqualTo(ErrorCode.CHAT_ALREADY_OPEN);
+                assertThat(be.getData()).isEqualTo(new OpenChatDTO(open.getConsultationId(), ConsultationStatus.QUEUED));
+            });
+        verify(consultationRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("상담 시작: 회원이 없으면 MEMBER_NOT_FOUND")
+    void startWhenMemberNotFound() {
+        when(customerConsultationRepository.lockCustomer(CUSTOMER_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> customerChatService.start(CUSTOMER_ID))
+            .extracting("errorCode")
+            .isEqualTo(ErrorCode.MEMBER_NOT_FOUND);
+    }
+
+    // ===== CUS-03 상담원 연결 요청 =====
 
     // 조회하면 이 상담이 나오도록 가짜 리포지토리에 등록
     private void givenConsultation(Consultation consultation) {

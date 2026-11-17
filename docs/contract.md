@@ -18,7 +18,7 @@
 | D-06 | errorCode 이름 | `UNAUTHORIZED`/`AUTH_REQUIRED`, `FORBIDDEN_ROLE`/`ACCESS_DENIED`, `CHAT_NOT_FOUND`/`CONSULTATION_NOT_FOUND`, `CHAT_CLOSED`/`CHAT_ALREADY_CLOSED`, `INVALID_INPUT`/`INVALID_PARAMETER`이 섞여 있음. auth·policy·sanction·faq·chat 문서는 errorCode가 없음 | 아래 [errorCode](#errorcode) 표로 통일 | 전원 | 제안 |
 | D-07 | 종료 시각 컬럼 | customer-chat.md·코드 컨벤션: `ended_at` / moderation·history: `closed_at` | `closed_at` (`closed_by`, `close_reason`과 이름을 맞춤) | 유능한 (ERD) | 제안 |
 | D-08 | 수동 경고·수동 종료 | policy.md: 수동 경고도 1회로 세고, 폭언 사유 수동 종료는 위반 1회 / moderation.md: 정책 확정 전까지 보류 | policy.md 기준으로 구현 | 한수민 | 제안 |
-| D-09 | 폭언 종료 이벤트 | INT-01: 모든 종료는 `ConsultationClosedEvent` 발행 / MOD-03: `AbuseConsultationTerminatedEvent`만 적혀 있음 | 폭언 종료는 두 이벤트를 모두 발행 (아래 [내부 이벤트](#내부-이벤트)) | 한수민, 유능한 | 제안 |
+| D-09 | 폭언 종료 이벤트 | INT-01: 모든 종료는 `ConsultationClosedEvent` 발행 / MOD-03: `AbuseConsultationTerminatedEvent`만 적혀 있음 | 폭언 종료도 `ConsultationClosedEvent`만 발행한다. 위반·정지(MOD-04)는 이벤트 대신 종료 트랜잭션 안에서 `SanctionService`를 직접 호출하고, `AbuseConsultationTerminatedEvent`는 만들지 않는다 (아래 [내부 이벤트](#내부-이벤트)) | 한수민, 유능한 | 확정 |
 | D-10 | WebSocket 규격 | chat.md API-005 「팀 확인 필요 사항」 12개 미정 (인증, 구독 경로, 오류 전달 등). 고객 대기 화면이 수락을 알 방법이 없음 | 아래 [WebSocket](#websocket) 제안. **WBS 기한 11/11** | 정혜영, 한수민, 장건웅 | 제안 |
 | D-11 | 프론트 라우트 | 화면 설계서: `/customer/consultations/:id/chat` 등 / 실제 코드: `/customer/chat`, `/customer/live`, `/admin/policy` | 아래 [화면 라우트](#화면-라우트) 표를 기준으로 확정 | 장건웅 (라우팅), 화면 담당 전원 | 제안 |
 | D-12 | AI 호출 기록 | NFR-010: Won't / INT-02: `ai_call_log` 테이블에 저장 | `ai_call_log` 테이블 만들지 않음. 호출 결과는 서버 로그로만 남긴다 (NFR-010 Won't 유지) | 심소민, 유능한 | 확정 (11/13) |
@@ -153,8 +153,8 @@ D-06 제안 목록이다. 도메인 공통 코드를 먼저 쓰고, 상담 관�
 | 고객이 대기 취소 | CUS-04 `cancel` | 심소민 | QUEUED | CLOSED | QUEUE_CANCEL | CUSTOMER | Closed |
 | 상담 중 고객이 종료 | API-006 `close` | 정혜영 | IN_PROGRESS | CLOSED | NORMAL | CUSTOMER | Closed |
 | 상담원 정상 종료 | API-006 `close` | 정혜영 | IN_PROGRESS | CLOSED | NORMAL | AGENT | Closed |
-| 폭언 누적 자동 종료 | MOD-03 (내부) | 한수민 | IN_PROGRESS | TERMINATED | ABUSE_AUTO | SYSTEM | Closed + AbuseTerminated |
-| 상담원 폭언 강제 종료 | MOD-07 `terminate` | 한수민 | IN_PROGRESS | TERMINATED | ABUSE_MANUAL | AGENT | Closed + AbuseTerminated (D-08) |
+| 폭언 누적 자동 종료 | MOD-03 (내부) | 한수민 | IN_PROGRESS | TERMINATED | ABUSE_AUTO | SYSTEM | Closed + MOD-04 직접 호출 |
+| 상담원 폭언 강제 종료 | MOD-07 `terminate` | 한수민 | IN_PROGRESS | TERMINATED | ABUSE_MANUAL | AGENT | Closed + MOD-04 직접 호출 (D-08) |
 
 - 이미 종료된 상담에 다시 종료 요청이 오면 `200`과 현재 상태를 준다. 이벤트는 다시 발행하지 않는다.
 - 폭언 종료 후 해당 상담원은 10분간 수락할 수 없다. (REQ-033, API-008)
@@ -164,10 +164,10 @@ D-06 제안 목록이다. 도메인 공통 코드를 먼저 쓰고, 상담 관�
 | 이벤트 | 발행 | 수신 | 시점 | 하는 일 |
 | --- | --- | --- | --- | --- |
 | `ConsultationClosedEvent(consultationId)` | 종료 처리하는 모든 곳 (위 표) | 유능한 `ConsultationSummaryService` (INT-01) | `AFTER_COMMIT` | 요약 템플릿으로 inquiry_category·inquiry_summary·process_summary·result 저장. 실패하면 "요약 없음" |
-| `AbuseConsultationTerminatedEvent` | 한수민 MOD-03, MOD-07 | 한수민 MOD-04 | 종료 커밋 후 | 위반 기록 → 누적 횟수로 이용정지 생성 (1회 7일, 2회 30일, 3회 이상 90일) |
 
 - 이벤트는 상태 변경 트랜잭션 안에서 발행한다. 종료가 롤백되면 후속 처리도 실행되지 않는다.
-- 같은 이벤트를 두 번 받아도 결과가 같아야 한다. (이미 요약이 있으면 건너뜀, 이미 위반이 있으면 건너뜀)
+- 폭언 종료(MOD-03, MOD-07)의 위반 기록·이용정지(MOD-04)는 이벤트가 아니라 종료 트랜잭션 안에서 `SanctionService.recordViolationAndSuspend()`를 직접 호출한다. 종료·위반·정지가 같이 성공하거나 같이 롤백되고, 종료 알림에 정지 기간을 담을 수 있다. (D-09)
+- 같은 이벤트를 두 번 받아도 결과가 같아야 한다. (이미 요약이 있으면 건너뜀) MOD-04도 같은 상담으로 다시 호출되면 기존 결과를 돌려준다.
 
 ## WebSocket
 
@@ -194,7 +194,7 @@ D-10 제안값이다. chat.md API-005의 미정 12개를 이 표로 정리한다
 | CONSULTATION_ACCEPTED | 상담원이 수락함 (고객 대기 화면 → 채팅 화면 전환) | 정혜영 API-002 | consultationId, agentName, acceptedAt |
 | WARNING_ISSUED | 폭언 경고 | 한수민 MOD-02·06 | warningId, warningCount, message |
 | CONSULTATION_CLOSED | 정상 종료 | 정혜영 API-006 | consultationId, status, closedBy, closedAt |
-| CONSULTATION_TERMINATED | 폭언 종료 | 한수민 MOD-03·07 | consultationId, status, reason, closedAt |
+| CONSULTATION_TERMINATED | 폭언 종료 | 한수민 MOD-03·07 | consultationId, status, reason, closedAt, suspendDays, suspendEndAt |
 
 `CONSULTATION_ACCEPTED`, `CONSULTATION_CLOSED`는 아직 어느 문서에도 없다. 제안으로 추가했다. 고객 대기 화면(SCR-006)은 처음 연결할 때 `QUEUED`인 상담을 구독하고, 이 이벤트를 받으면 채팅 화면으로 넘어간다.
 
