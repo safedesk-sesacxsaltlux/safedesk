@@ -6,8 +6,8 @@
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | MOD-01 | INTERNAL | `ModerationService.processMessage()` | 폭언 감지 및 메시지 마스킹 | 내부 | 불필요 (서버 내부 호출, 고객 메시지 송신 시 JWT 인증은 선행) | 작성완료 | 한수민 |  |
 | MOD-02 | INTERNAL | `ModerationService.applyAutoWarning()` | 자동 경고 처리 | 내부 | 불필요 (서버 내부 호출) | 작성완료 | 한수민 |  |
-| MOD-03 | INTERNAL | `ModerationService.terminateForAbuse()` | 폭언 누적 상담 자동 종료 | 내부 | 불필요 (서버 내부 이벤트) | 작성완료 | 한수민 |  |
-| MOD-04 | EVENT | `AbuseConsultationTerminatedEvent` | 위반 기록 및 자동 제재 | 내부 | 불필요(서버 내부) | 작성완료 | 한수민 |  |
+| MOD-03 | INTERNAL | `ModerationService.terminateForAbuse()` | 폭언 누적 상담 자동 종료 | 내부 | 불필요 (서버 내부 호출) | 작성완료 | 한수민 |  |
+| MOD-04 | INTERNAL | `SanctionService.recordViolationAndSuspend()` | 위반 기록 및 자동 제재 | 내부 | 불필요 (서버 내부 호출) | 작성완료 | 한수민 |  |
 | MOD-05 | GET | `/api/consultations/{consultationId}/warnings` | 상담별 경고 내역 조회 | 상담 | 필요 (AGENT, ADMIN) | 작성완료 | 한수민 |  |
 | MOD-06 | POST | `/api/consultations/{consultationId}/warnings` | 상담원 수동 경고 발송 | 상담 | 필요 (AGENT) | 작성완료 | 한수민 |  |
 | MOD-07 | PATCH | `/api/consultations/{consultationId}/terminate` | 상담원 수동 강제 종료 | 상담 | 필요 (AGENT, ADMIN) | 작성완료 | 한수민 |  |
@@ -261,80 +261,104 @@ Optional<WarningResult> applyAutoWarning(
 | 담당자 | 한수민 |
 | 상태 | 작성완료 |
 | 우선순위 | Must |
-| 설명 | 동일 상담에서 폭언이 종료 기준에 도달하면 상담을 강제 종료하고 위반·제재 처리 이벤트를 발생시킨다. |
+| 설명 | 동일 상담에서 폭언이 종료 기준에 도달하면 상담을 종료하고, 같은 트랜잭션에서 위반 기록·자동 정지(MOD-04)를 실행한다. |
 
 ### 요청
 
 ```java
-TerminationResult terminateForAbuse(
-    Long consultationId
+Optional<TerminationResult> terminateForAbuse(
+    long consultationId
 );
 ```
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| consultationId | long | Y | 상담 ID |
+
+`ChatService.sendMessage()`가 MOD-02 결과의 `shouldTerminate`가 true일 때 같은 트랜잭션 안에서 호출한다.
+경고 횟수를 다시 세지 않는다. MOD-02의 `shouldTerminate`(AUTO + MANUAL, 상담의 `policy_id` 정책 기준)를 그대로 쓴다.
 
 ### 응답
 
 ```json
 {
-  "success": true,
-  "data": {
-    "consultationId": 101,
-    "status": "TERMINATED",
-    "closeReason": "ABUSE_THRESHOLD_EXCEEDED",
-    "closedAt": "2026-11-11T13:20:00"
-  },
-  "message": "폭언 누적으로 상담이 종료되었습니다."
+  "consultationId": 101,
+  "status": "TERMINATED",
+  "closeReason": "ABUSE_AUTO",
+  "closedBy": "SYSTEM",
+  "closedAt": "2026-11-11T13:20:00",
+  "suspendDays": 7,
+  "suspendEndAt": "2026-11-18T13:20:00"
 }
 ```
 
+| 필드 | 설명 |
+| --- | --- |
+| closeReason / closedBy | `ABUSE_AUTO` / `SYSTEM` (contract.md 「종료 처리」, D-04) |
+| closedAt | 상담 종료 시각. MOD-04 정지 시작 시각과 같은 값이다 (REQ-021) |
+| suspendDays / suspendEndAt | MOD-04 결과의 정지 일수와 해제 예정 일시. 종료 알림에 담는다 |
+
+이미 종료된 상담이면 `Optional.empty()`를 돌려준다. 예외를 던지면 같은 트랜잭션의 메시지 저장까지 롤백되기 때문이다.
+
+위 응답은 내부 결과 DTO(`TerminationResult`)를 설명하기 위한 JSON 표현이다. 외부 REST 응답은 아니다.
+
 ### 처리 순서
 
-1. 해당 상담의 자동 경고 횟수를 조회한다.
-2. 활성 정책의 `close_threshold`를 조회한다.
-3. 자동 경고 횟수가 종료 기준 이상인지 확인한다.
-4. 상담 상태가 ACTIVE인지 확인한다.
-5. 상담 상태를 TERMINATED로 변경한다.
-6. 종료 시각과 종료 사유를 저장한다.
-7. 고객과 상담원에게 종료 이벤트를 발송한다.
-8. MOD-04 위반 기록 및 자동 제재를 실행한다.
-9. 기존 INT-01 상담 요약 생성 기능에도 상담 종료 사실을 전달한다.
+1. 상담을 조회해 `customer_id`, `policy_id`를 꺼내 둔다. 2번의 UPDATE가 영속성 컨텍스트를 비우므로 그 전에 꺼낸다.
+2. 조건부 UPDATE로 종료한다. 바뀐 행이 0이면 이미 종료된 상담이므로 `Optional.empty()`를 돌려주고 끝낸다.
+   ```sql
+   UPDATE consultation
+   SET status = 'TERMINATED', closed_at = ?, closed_by = 'SYSTEM', close_reason = 'ABUSE_AUTO'
+   WHERE consultation_id = ? AND status = 'IN_PROGRESS'
+   ```
+3. MOD-04 `SanctionService.recordViolationAndSuspend()`를 호출해 위반·정지를 저장한다. 종료 시각을 정지 시작 시각으로 넘긴다.
+4. `ConsultationClosedEvent`를 발행한다 (INT-01 상담 요약, `AFTER_COMMIT`).
+5. `TerminationResult`를 돌려준다.
+
+`ChatService`는 결과가 있으면 커밋 후에 `CONSULTATION_TERMINATED`를 발행한다. 이때 `WARNING_ISSUED`는 보내지 않는다 (MOD-02 처리 순서 9번).
 
 ### 예외 상황
 
 | 상황 | errorCode | 처리 |
 | --- | --- | --- |
-| 상담 없음 | CONSULTATION_NOT_FOUND | 처리 중단 |
-| 경고 기준 미달 | WARNING_THRESHOLD_NOT_MET | 자동 종료하지 않음 |
-| 이미 종료된 상담 | CHAT_ALREADY_CLOSED | 중복 종료 방지 |
-| 정책 없음 | SANCTION_POLICY_NOT_FOUND | 종료 판단 보류 |
-| 상태 변경 실패 | CHAT_TERMINATION_FAILED | 트랜잭션 롤백 |
+| 상담 없음 | CHAT_NOT_FOUND | 처리 중단, 트랜잭션 롤백 |
+| 이미 종료된 상담 | - | 종료하지 않음 (`Optional.empty()`). 위반·이벤트·알림 없음 |
+| 상담원 종료와 동시 요청 | - | 조건부 UPDATE로 한쪽만 성공. 늦은 쪽은 이미 종료된 상담과 같다 |
+| 위반·정지 저장 실패 | - | 예외를 그대로 던진다. 종료·메시지·원문·경고까지 롤백되고 알림·요약도 없다 (NFR-009) |
 
 ### DB 연동
 
 | 테이블 | 컬럼 | 작업 |
 | --- | --- | --- |
-| consultation | status, closed_at, close_reason, closed_by | UPDATE |
-| warning | consultation_id, warning_type | SELECT |
-| sanction_policy | close_threshold | SELECT |
+| consultation | consultation_id, customer_id, policy_id | SELECT |
+| consultation | status, closed_at, close_reason, closed_by | UPDATE (조건부) |
+| violation, sanction | MOD-04 참고 | INSERT |
 
 ### WebSocket 알림 예시
+
+`/topic/chats/{consultationId}`로 커밋 후에 발행한다 (contract.md WebSocket 「CONSULTATION_TERMINATED」).
 
 ```json
 {
   "type": "CONSULTATION_TERMINATED",
   "consultationId": 101,
   "status": "TERMINATED",
-  "reason": "반복적인 폭언으로 상담이 종료되었습니다.",
-  "closedAt": "2026-11-11T13:20:00"
+  "reason": "반복된 폭언으로 상담이 종료되었습니다. 7일간 상담을 이용할 수 없습니다.",
+  "closedAt": "2026-11-11T13:20:00",
+  "suspendDays": 7,
+  "suspendEndAt": "2026-11-18T13:20:00"
 }
 ```
+
+- 문구는 policy.md 6장 그대로 쓰고 일수만 정지 일수로 바꾼다.
+- 원문은 넣지 않는다. 같은 토픽을 상담원도 구독한다 (NFR-005).
 
 ### 설계 이유
 
 - 종료 기준을 서버에서 판단해 프론트엔드 조작을 방지한다.
-- 종료 상태 변경과 후속 이벤트 처리를 일관되게 관리한다.
-- 동일 상담의 중복 종료를 방지한다.
-- 기존 상담 요약 생성 기능과 연동한다.
-- 자동 종료와 상담원의 수동 종료를 구분해 제재 정책을 명확히 한다.
+- 조건부 UPDATE로 상담원 종료와 동시에 들어와도 한 번만 종료하고, 이벤트도 한 번만 발행한다.
+- 종료와 위반·정지를 같은 트랜잭션에서 처리해 "종료됐는데 정지가 없는" 상태를 막는다 (NFR-009). 그래서 종료 알림에 정지 기간을 함께 담을 수 있다.
+- 알림과 요약은 커밋 후에만 실행해, 롤백된 종료가 화면에 보이지 않게 한다.
 
 ---
 
@@ -347,97 +371,97 @@ TerminationResult terminateForAbuse(
 | API ID | MOD-04 |
 | 분류 | 내부 |
 | 기능 | 위반 기록 및 자동 제재 |
-| Method | EVENT |
-| URL | `AbuseConsultationTerminatedEvent` |
+| Method | INTERNAL |
+| URL | `SanctionService.recordViolationAndSuspend()` |
 | 사용 화면 | 고객 이용정지 안내 / 관리자 제재 관리 |
 | 인증 필요 | 불필요 (서버 내부) |
 | 담당자 | 한수민 |
 | 상태 | 작성완료 |
 | 우선순위 | Must |
-| 설명 | 폭언으로 상담이 자동 종료되면 위반 이력을 생성하고 활성 제재 정책에 따라 고객에게 이용정지를 적용한다. |
+| 설명 | 폭언으로 상담이 종료되면 위반 이력을 생성하고, 상담에 적용된 제재 정책에 따라 고객을 이용정지한다. |
 
 ### 요청
 
-**내부 이벤트**
-
-```json
-{
-  "consultationId": 101,
-  "customerId": 10,
-  "closeReason": "ABUSE_THRESHOLD_EXCEEDED",
-  "closedAt": "2026-11-11T13:20:00"
-}
+```java
+SanctionResult recordViolationAndSuspend(
+    long consultationId,
+    long customerId,
+    Long policyId,
+    LocalDateTime closedAt
+);
 ```
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| consultationId | long | Y | 종료된 상담 ID |
+| customerId | long | Y | 상담한 고객 ID |
+| policyId | Long | N | 상담에 저장된 정책 ID. 비어 있으면 최신 정책 |
+| closedAt | LocalDateTime | Y | 상담 종료 시각 = 정지 시작 시각 (REQ-021) |
+
+이벤트 리스너가 아니라 일반 메서드다. MOD-03 자동 종료와 MOD-07 폭언 사유 수동 종료가 **종료 트랜잭션 안에서** 호출한다 (contract.md D-09).
+`Consultation` 엔티티 대신 값을 받는 이유: MOD-03의 조건부 UPDATE 뒤에는 영속성 컨텍스트가 비워져 엔티티가 옛날 상태이기 때문이다.
 
 ### 응답
 
 ```json
 {
-  "success": true,
-  "data": {
-    "violationId": 201,
-    "customerId": 10,
-    "totalViolations": 1,
-    "sanctionId": 301,
-    "suspendDays": 7,
-    "startAt": "2026-11-11T13:20:00",
-    "endAt": "2026-11-18T13:20:00"
-  },
-  "message": "위반 기록 및 자동 제재가 적용되었습니다."
+  "violationId": 201,
+  "customerId": 10,
+  "totalViolations": 1,
+  "sanctionId": 301,
+  "suspendDays": 7,
+  "startAt": "2026-11-11T13:20:00",
+  "endAt": "2026-11-18T13:20:00"
 }
 ```
 
+위 응답은 내부 결과 DTO(`SanctionResult`)를 설명하기 위한 JSON 표현이다. 외부 REST 응답은 아니다.
+
 ### 처리 순서
 
-1. 폭언 자동 종료 이벤트를 수신한다.
-2. 종료 사유가 ABUSE_THRESHOLD_EXCEEDED인지 확인한다.
-3. 동일 상담에 위반 이력이 존재하는지 확인한다.
-4. `violation` 테이블에 위반 기록을 생성한다.
-5. 고객의 누적 위반 횟수를 계산한다.
-6. 활성 `sanction_policy`를 조회한다.
-7. 누적 위반 횟수에 따라 정지 일수를 결정한다.
-8. `sanction` 테이블에 제재를 등록한다.
-9. 고객에게 제재 결과를 알린다.
-10. CUS-01과 HIS-02에서 제재 상태를 확인할 수 있도록 연동한다.
+1. 같은 상담의 위반이 이미 있으면 새로 만들지 않고 기존 위반·정지로 결과를 돌려준다.
+2. `violation` 테이블에 위반을 저장한다.
+3. 고객의 누적 위반 횟수를 센다 (방금 저장한 것 포함, 기간 조건 없음. REQ-020).
+4. **상담의 `policy_id` 정책**을 조회해 정지 일수를 정한다. `policy_id`가 비어 있거나 찾지 못하면 최신 정책을 쓴다 (MOD-02와 같은 `findByIdOrLatest()`).
+5. `sanction` 테이블에 정지를 저장한다. `start_at` = 상담 종료 시각, `end_at` = `start_at` + 정지 일수.
+6. `SanctionResult`를 돌려준다. MOD-03이 이 값을 종료 알림에 담아 고객에게 알린다.
+
+정지 상태(SUSPENDED / RELEASED / EXPIRED)는 저장하지 않고 `end_at`·`released_at`으로 계산한다 (contract.md `SanctionStatus`). CUS-01·HIS-02의 정지 여부 판단은 이 API 범위가 아니다.
 
 ### 기본 정책
 
-| 누적 위반 | 기본 정지 기간 |
-| --- | --- |
-| 1회 | 7일 |
-| 2회 | 30일 |
-| 3회 이상 | 30일 및 관리자 검토 |
+| 누적 위반 | 기본 정지 기간 | 정책 컬럼 |
+| --- | --- | --- |
+| 1회 | 7일 | `first_days` |
+| 2회 | 30일 | `second_days` |
+| 3회 이상 | 90일 | `third_days` |
 
-기간은 고정하지 않고 활성 정책의 `first_days`, `second_days`, `third_days`를 적용한다.
+기간은 고정하지 않고 상담에 적용된 정책의 값을 쓴다 (policy.md 5장). 정책을 바꿔도 진행 중이던 상담은 이전 값을 따른다.
 
 ### 예외 상황
 
 | 상황 | errorCode | 처리 |
 | --- | --- | --- |
-| 상담 없음 | CONSULTATION_NOT_FOUND | 처리 중단 |
-| 고객 없음 | CUSTOMER_NOT_FOUND | 처리 중단 |
-| 폭언 종료 아님 | INVALID_TERMINATION_REASON | 위반 생성하지 않음 |
-| 위반 중복 | DUPLICATE_VIOLATION | 중복 생성 방지 |
-| 정책 없음 | SANCTION_POLICY_NOT_FOUND | 제재 적용 보류 |
-| DB 저장 실패 | SANCTION_SAVE_FAILED | 재처리 가능한 오류로 기록 |
+| 같은 상담의 위반이 이미 있음 | - | 새로 만들지 않고 기존 결과를 돌려준다. 예외를 던지면 종료·메시지까지 롤백되기 때문이다. DB에도 `uk_violation_consultation_id` 유니크 제약이 있다 |
+| 위반은 있는데 정지가 없음 | - | `IllegalStateException`. 같은 트랜잭션에서 함께 저장하므로 데이터 오류로 본다 |
+| 정책 없음 | - | `IllegalStateException`. 시드에 기본 정책이 항상 있으므로 DB 설정 오류로 본다 |
+| DB 저장 실패 | - | 예외를 그대로 던진다. 호출한 종료 트랜잭션까지 롤백된다 (NFR-009) |
 
 ### DB 연동
 
 | 테이블 | 컬럼 | 작업 |
 | --- | --- | --- |
-| consultation | consultation_id, customer_id, close_reason | SELECT |
-| violation | consultation_id, customer_id, created_at | INSERT |
-| sanction_policy | first_days, second_days, third_days | SELECT |
-| sanction | violation_id, customer_id, suspend_days, start_at, end_at | INSERT |
+| violation | consultation_id, customer_id | SELECT, INSERT |
+| sanction_policy | policy_id, first_days, second_days, third_days | SELECT |
+| sanction | violation_id, customer_id, suspend_days, start_at, end_at | SELECT, INSERT |
 
 ### 설계 이유
 
-- 위반은 개별 폭언마다 기록하지 않고 폭언에 따른 상담 강제 종료를 기준으로 기록한다.
-- 고객 단위의 누적 위반 횟수로 제재 기간을 계산한다.
-- 제재 기간을 DB 정책에서 조회해 관리자 정책 변경을 반영한다.
-- 동일 상담에 대해 위반·제재가 중복 생성되지 않도록 한다.
-- 제재 상태 판정 로직을 CUS-01과 HIS-02에서 재사용한다.
-- 상담 종료, 위반 생성, 제재 저장이 중간 실패로 불일치하지 않도록 트랜잭션과 이벤트 처리 방식을 협의한다.
+- 위반은 개별 폭언마다 기록하지 않고 폭언에 따른 상담 종료 1건을 1회로 기록한다.
+- 고객 단위의 누적 위반 횟수로 정지 기간을 정하고, 정지가 풀려도 횟수는 초기화하지 않는다.
+- 정지 기간은 상담에 저장된 정책에서 조회해 관리자 정책 변경을 반영하되, 진행 중인 상담에는 영향을 주지 않는다.
+- 같은 상담으로 다시 호출돼도 위반·정지가 중복 생성되지 않는다.
+- 종료와 같은 트랜잭션에서 실행해 종료·위반·정지가 함께 성공하거나 함께 롤백된다. 커밋 후 이벤트로 처리하면 종료 알림에 정지 기간을 담을 수 없고, 정지 저장이 실패해도 종료는 남는다.
 
 ---
 

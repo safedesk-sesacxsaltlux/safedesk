@@ -57,8 +57,8 @@ enum·URL 규칙·응답 형식·errorCode·WebSocket 이벤트 같은 공통 �
 | [HIS-07](history.md#his-07-운영-대시보드) | 통계 | GET | `/api/admin/dashboard` | 운영 대시보드 | 필요 | 작성완료 | 유능한 |  |
 | [MOD-01](moderation.md#mod-01-폭언-감지-및-메시지-마스킹) | 내부 | INTERNAL | `ModerationService.processMessage()` | 폭언 감지 및 메시지 마스킹 | 불필요 (서버 내부 호출, 고객 메시지 송신 시 JWT 인증은 선행) | 작성완료 | 한수민 |  |
 | [MOD-02](moderation.md#mod-02-자동-경고-처리) | 내부 | INTERNAL | `ModerationService.applyAutoWarning()` | 자동 경고 처리 | 불필요 (서버 내부 호출) | 작성완료 | 한수민 |  |
-| [MOD-03](moderation.md#mod-03-폭언-누적-상담-자동-종료) | 내부 | INTERNAL | `ModerationService.terminateForAbuse()` | 폭언 누적 상담 자동 종료 | 불필요 (서버 내부 이벤트) | 작성완료 | 한수민 |  |
-| [MOD-04](moderation.md#mod-04-위반-기록-및-자동-제재) | 내부 | EVENT | `AbuseConsultationTerminatedEvent` | 위반 기록 및 자동 제재 | 불필요(서버 내부) | 작성완료 | 한수민 |  |
+| [MOD-03](moderation.md#mod-03-폭언-누적-상담-자동-종료) | 내부 | INTERNAL | `ModerationService.terminateForAbuse()` | 폭언 누적 상담 자동 종료 | 불필요 (서버 내부 호출) | 작성완료 | 한수민 |  |
+| [MOD-04](moderation.md#mod-04-위반-기록-및-자동-제재) | 내부 | INTERNAL | `SanctionService.recordViolationAndSuspend()` | 위반 기록 및 자동 제재 | 불필요 (서버 내부 호출) | 작성완료 | 한수민 |  |
 | [MOD-05](moderation.md#mod-05-상담별-경고-내역-조회) | 상담 | GET | `/api/consultations/{consultationId}/warnings` | 상담별 경고 내역 조회 | 필요 (AGENT, ADMIN) | 작성완료 | 한수민 |  |
 | [MOD-06](moderation.md#mod-06-상담원-수동-경고-발송) | 상담 | POST | `/api/consultations/{consultationId}/warnings` | 상담원 수동 경고 발송 | 필요 (AGENT) | 작성완료 | 한수민 |  |
 | [MOD-07](moderation.md#mod-07-상담원-수동-강제-종료) | 상담 | PATCH | `/api/consultations/{consultationId}/terminate` | 상담원 수동 강제 종료 | 필요 (AGENT, ADMIN) | 작성완료 | 한수민 |  |
