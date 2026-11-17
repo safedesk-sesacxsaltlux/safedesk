@@ -1,10 +1,9 @@
 package com.safedesk.sanction.service;
 
+import com.safedesk.common.exception.BusinessException;
+import com.safedesk.common.exception.ErrorCode;
 import com.safedesk.member.repository.MemberRepository;
-import com.safedesk.sanction.dto.PolicyAdminDTO;
-import com.safedesk.sanction.dto.PolicyDefaultsDTO;
-import com.safedesk.sanction.dto.PolicyResponseDTO;
-import com.safedesk.sanction.dto.PolicyVersionDTO;
+import com.safedesk.sanction.dto.*;
 import com.safedesk.sanction.entity.SanctionPolicy;
 import com.safedesk.sanction.repository.SanctionPolicyRepository;
 import org.springframework.stereotype.Service;
@@ -37,6 +36,36 @@ public class SanctionPolicyService {
         );
     }
 
+    @Transactional
+    public PolicyVersionDTO updatePolicy(PolicyUpdateRequestDTO request, Long adminId) {
+        int warn = request.warningThreshold();
+        int close = request.autoCloseThreshold();
+        int first = request.suspensionDays().first();
+        int second = request.suspensionDays().second();
+        int third = request.suspensionDays().thirdOrMore();
+
+        if (!inRange(warn, 1, 5) || !inRange(close, 1, 5) || close <= warn
+            || !inRange(first, 1, 365) || !inRange(second, 1, 365) || !inRange(third, 1, 365)) {
+            throw new BusinessException(ErrorCode.INVALID_POLICY_VALUE);
+        }
+
+        SanctionPolicy current = sanctionPolicyRepository.findFirstByOrderByPolicyIdDesc()
+            .orElseThrow(() -> new IllegalStateException("제재 정책이 없습니다."));
+
+        if (current.getWarnThreshold() == warn
+            && current.getCloseThreshold() == close
+            && current.getFirstDays() == first
+            && current.getSecondDays() == second
+            && current.getThirdDays() == third) {
+            return PolicyVersionDTO.of(current, findAdmin(current.getCreatedBy()));
+        }
+
+        SanctionPolicy saved = sanctionPolicyRepository.save(
+            SanctionPolicy.create(warn, close, first, second, third, adminId));
+
+        return PolicyVersionDTO.of(saved, findAdmin(saved.getCreatedBy()));
+    }
+
     private PolicyAdminDTO findAdmin(Long memberId) {
         if (memberId == null) {
             return null;
@@ -44,5 +73,9 @@ public class SanctionPolicyService {
         return memberRepository.findById(memberId)
             .map(PolicyAdminDTO::from)
             .orElse(null);
+    }
+
+    private boolean inRange(int value, int min, int max) {
+        return value >= min && value <= max;
     }
 }

@@ -20,8 +20,6 @@ import java.time.LocalDateTime;
  *   change_note     varchar(255) NULL
  *   created_by      bigint NULL
  *   created_at      datetime NOT NULL DEFAULT CURRENT_TIMESTAMP
- *
- * 지금은 조회 전용이다 (setter 없음). 새 정책을 저장하는 생성자는 ADM-02 에서 추가한다.
  */
 @Entity
 @Table(name = "sanction_policy")
@@ -54,10 +52,23 @@ public class SanctionPolicy {
     @Column(name = "created_by")
     private Long createdBy;
 
-    @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     protected SanctionPolicy() {}   // JPA 용
+
+    public static SanctionPolicy create(int warnThreshold, int closeThreshold, int firstDays, int secondDays,
+                                        int thirdDays, Long createdBy) {
+        SanctionPolicy policy = new SanctionPolicy();
+        policy.warnThreshold = warnThreshold;
+        policy.closeThreshold = closeThreshold;
+        policy.firstDays = firstDays;
+        policy.secondDays = secondDays;
+        policy.thirdDays = thirdDays;
+        policy.createdBy = createdBy;
+        policy.createdAt = LocalDateTime.now().withNano(0);
+        return policy;
+    }
 
     public Long getPolicyId() {
         return policyId;
