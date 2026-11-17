@@ -63,8 +63,10 @@
 목록은 최신순, 한 페이지 20건이다. 요청은 `?page=0&size=20` (page는 0부터).
 
 ```json
-"data": { "content": [ ], "page": 0, "size": 20, "totalElements": 4, "totalPages": 1 }
+"data": { "content": [ ], "page": 0, "size": 20, "totalElements": 4, "totalPages": 1, "hasNext": false }
 ```
+
+- `hasNext`: 다음 페이지가 있는지. 화면의 "다음"·"더 보기" 버튼 표시에 쓴다. (공통 `PageResponse`)
 
 ## errorCode
 
