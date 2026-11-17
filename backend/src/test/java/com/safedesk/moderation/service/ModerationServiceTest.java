@@ -49,6 +49,8 @@ class ModerationServiceTest {
         abuseLogRepository = mock(AbuseLogRepository.class);
         warningRepository = mock(WarningRepository.class);
         sanctionPolicyRepository = mock(SanctionPolicyRepository.class);
+        // 정책 조회는 default 메서드라 mock 이면 null 을 돌려준다. 실제 로직(findById → 최신 정책)을 타게 한다
+        when(sanctionPolicyRepository.findByIdOrLatest(any())).thenCallRealMethod();
         consultationRepository = mock(ConsultationRepository.class);
         moderationService = new ModerationService(
             abuseFilter,

@@ -93,7 +93,7 @@ public class ModerationService {
         }
 
         // 4. 상담에 적용된 정책 (정책을 바꿔도 새 상담부터 적용, 체크리스트 S3)
-        SanctionPolicy policy = findPolicy(consultation);
+        SanctionPolicy policy = sanctionPolicyRepository.findByIdOrLatest(consultation.getPolicyId());
 
         // 5. 경고 저장
         Warning saved = warningRepository.save(Warning.auto(consultationId, abuseLogId));
@@ -111,22 +111,5 @@ public class ModerationService {
             closeThreshold,
             warningCount >= closeThreshold
         ));
-    }
-
-    /**
-     * 상담에 저장된 policy_id 의 정책. 비어 있거나 찾지 못하면 최신 정책으로 대신한다.
-     * (Consultation.policyId 가 엔티티에서 nullable 이라 대비)
-     */
-    private SanctionPolicy findPolicy(Consultation consultation) {
-        Long policyId = consultation.getPolicyId();
-
-        Optional<SanctionPolicy> policy = (policyId != null)
-            ? sanctionPolicyRepository.findById(policyId)
-            : Optional.empty();
-
-        return policy
-            .or(sanctionPolicyRepository::findFirstByOrderByPolicyIdDesc)
-            // 시드에 기본 정책이 항상 있으므로, 여기까지 오면 DB 설정 오류다
-            .orElseThrow(() -> new IllegalStateException("제재 정책이 없습니다."));
     }
 }
