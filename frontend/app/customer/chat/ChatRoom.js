@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import Icon from "../../_components/Icon";
@@ -23,9 +23,15 @@ let nextKey = 0;
 const newKey = () => `m${nextKey++}`;
 
 // SCR-005 AI 상담 (CUS-02 메시지 전송, CUS-03 상담원 연결)
+// Cache Components 는 이 화면을 숨겨 두었다가 다시 쓴다. 상담 번호가 바뀌면 이전 상담의 대화가
+// 남지 않도록 chatId 를 key 로 줘서 새로 그린다.
 export default function ChatRoom() {
-  const router = useRouter();
   const chatId = useSearchParams().get("chatId");
+  return <ChatRoomContent key={chatId ?? "none"} chatId={chatId} />;
+}
+
+function ChatRoomContent({ chatId }) {
+  const router = useRouter();
 
   // { key, role: "me" | "bot" | "note", content, typing, handoff }
   const [messages, setMessages] = useState([]);
@@ -34,6 +40,11 @@ export default function ChatRoom() {
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState(null);
   const endRef = useRef(null);
+
+  // 화면이 숨겨질 때 「연결 요청 중」 잠금을 푼다. 돌아왔을 때 버튼이 눌리지 않는 일을 막는다.
+  useLayoutEffect(() => {
+    return () => setConnecting(false);
+  }, []);
 
   const scrollToEnd = useCallback(() => {
     endRef.current?.scrollIntoView({ block: "end" });

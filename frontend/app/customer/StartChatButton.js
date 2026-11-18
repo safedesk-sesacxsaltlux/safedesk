@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Icon from "../_components/Icon";
 import { chatPath, startChat } from "./_lib/chatApi";
@@ -10,6 +10,15 @@ export default function StartChatButton() {
   const router = useRouter();
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState(null);
+
+  // Cache Components 는 다른 화면으로 가도 이 화면을 숨겨 두고 상태를 그대로 살린다 (Next.js Activity).
+  // 돌아왔을 때 「시작하는 중」으로 잠겨 있지 않도록, 화면이 숨겨질 때 버튼 상태를 되돌린다.
+  useLayoutEffect(() => {
+    return () => {
+      setStarting(false);
+      setError(null);
+    };
+  }, []);
 
   async function handleClick() {
     setStarting(true);
