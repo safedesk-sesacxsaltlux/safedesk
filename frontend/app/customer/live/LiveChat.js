@@ -118,6 +118,7 @@ function LiveChatContent({ chatId }) {
         setError(e.message ?? "메시지를 보내지 못했습니다.");
       },
       onConnected: () => {
+        sentRef.current = [];
         setConnected(true);
         setError(null);
         load().catch(() => setError("상담 정보를 불러오지 못했습니다."));
