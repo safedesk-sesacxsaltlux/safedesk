@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Icon from "../_components/Icon";
@@ -20,6 +20,16 @@ export default function AgentConsolePage() {
   const [selectedId, setSelectedId] = useState(null);
   const [acceptingId, setAcceptingId] = useState(null);
   const [acceptError, setAcceptError] = useState("");
+
+  // Cache Components 는 다른 화면으로 가도 이 화면을 숨겨 두고 상태를 그대로 살린다 (Next.js Activity).
+  // 수락에 성공하면 바로 채팅 화면으로 가서 acceptingId 가 남는데, 돌아왔을 때 수락 버튼이 모두 잠겨 있지 않도록
+  // 화면이 숨겨질 때 버튼 상태를 되돌린다 (#76 StartChatButton 과 같은 방식).
+  useLayoutEffect(() => {
+    return () => {
+      setAcceptingId(null);
+      setAcceptError("");
+    };
+  }, []);
 
   // 상담 대기열 (API-001) + 회복 시간·진행 중 상담 (API-008)
   const refresh = useCallback(async () => {

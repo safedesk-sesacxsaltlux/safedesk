@@ -34,10 +34,34 @@ function mergeMessages(prev, incoming) {
   );
 }
 
+// 같은 화면에서 ?chatId 만 바뀌면 React 는 컴포넌트를 다시 쓰므로, 이전 상담의 메시지·경고·상태가 남는다.
+// Cache Components(Activity)로 화면이 살아 있을 때도 마찬가지라 chatId 를 key 로 줘서 상담마다 새로 그린다
+// (#76 ChatRoom 과 같은 방식).
+// 경고 내역(MOD-05)으로 「경고 n회 발송」 안내를 되살린다. 새로고침·재연결 때 WARNING_ISSUED 로 받은 안내가 사라지기 때문.
+// 각 경고는 그 시각까지 온 마지막 메시지 바로 뒤에 둔다. 이미 있는 안내(같은 warningId)는 그대로 둔다.
+function mergeWarningNotices(prev, warnings, history) {
+  const known = new Set(prev.map((n) => n.key));
+  const restored = [];
+  warnings.forEach((w, i) => {
+    const key = `w-${w.warningId}`;
+    if (known.has(key)) return;
+    const at = Date.parse(w.createdAt);
+    const afterId = history.reduce(
+      (acc, m) => (Date.parse(m.createdAt) <= at ? Math.max(acc, m.messageId) : acc),
+      0,
+    );
+    restored.push({ key, kind: "warning", count: i + 1, afterId });
+  });
+  return restored.length ? [...prev, ...restored] : prev;
+}
+
 function AgentChat() {
+  const chatId = useSearchParams().get("chatId");
+  return <AgentChatRoom key={chatId ?? "none"} chatId={chatId} />;
+}
+
+function AgentChatRoom({ chatId }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const chatId = searchParams.get("chatId");
   const validChatId = chatId && /^\d+$/.test(chatId) ? chatId : null;
 
   const [detail, setDetail] = useState(null);
@@ -62,9 +86,10 @@ function AgentChat() {
   // 상세(API-003)와 메시지 이력(API-004)을 불러온다. 처음 들어올 때와 다시 연결될 때마다 부른다.
   const loadState = useCallback(async () => {
     if (!validChatId) return;
-    const [detailResult, historyResult] = await Promise.all([
+    const [detailResult, historyResult, warningsResult] = await Promise.all([
       callApi(`/api/chats/${validChatId}`, "GET", "상담 정보를 불러오지 못했습니다."),
       callApi(`/api/chats/${validChatId}/messages`, "GET", "메시지를 불러오지 못했습니다."),
+      callApi(`/api/consultations/${validChatId}/warnings`, "GET"), // MOD-05. 실패해도 화면은 그대로 쓴다
     ]);
     if (detailResult.unauthorized || historyResult.unauthorized) {
       goLogin();
@@ -74,9 +99,17 @@ function AgentChat() {
       setLoadError(detailResult.error);
       return;
     }
-    setDetail(detailResult.data);
+    // 재연결 때 상세가 경고 커밋 전에 읽혔을 수 있다. WARNING_ISSUED 로 이미 올린 경고 수가 줄지 않게 큰 값을 쓴다
+    setDetail((prev) =>
+      prev
+        ? { ...detailResult.data, warningCount: Math.max(prev.warningCount ?? 0, detailResult.data.warningCount ?? 0) }
+        : detailResult.data,
+    );
     setStatus(detailResult.data.consultationStatus);
     if (historyResult.data) setMessages((prev) => mergeMessages(prev, historyResult.data));
+    if (warningsResult.data?.warnings) {
+      setNotices((prev) => mergeWarningNotices(prev, warningsResult.data.warnings, historyResult.data ?? []));
+    }
     setLoadError("");
   }, [validChatId, goLogin]);
 

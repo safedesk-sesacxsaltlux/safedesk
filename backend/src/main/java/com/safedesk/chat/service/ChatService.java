@@ -196,6 +196,13 @@ public class ChatService {
 
     @Transactional
     public ChatAcceptResponseDTO acceptConsultation(long consultationId, Long agentId) {
+        // 상담원 행을 트랜잭션의 첫 조회로 잠근다. 같은 상담원이 서로 다른 상담 두 건을
+        // 동시에 수락하면 상담 행 잠금만으로는 겹치지 않아 existsByAgentIdAndStatus 검사를
+        // 둘 다 통과할 수 있기 때문이다 (동시 수락 테스트). 상담 행 잠금보다 먼저 둬서 항상 같은 순서로
+        // 잠그게 하면 두 트랜잭션이 서로를 기다리는 교착 상태도 생기지 않는다.
+        Member agent = memberRepository.findWithLockByMemberId(agentId)
+            .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
+
         Consultation consultation = consultationRepository
             .findWithLockByConsultationId(consultationId)
             .orElseThrow(() -> new BusinessException(ErrorCode.CHAT_NOT_FOUND));
@@ -223,9 +230,9 @@ public class ChatService {
             .orElseThrow(() -> new BusinessException(ErrorCode.CHAT_NOT_FOUND));
 
         // 고객 대기 화면 → 채팅 화면 전환 (contract.md WebSocket 「CONSULTATION_ACCEPTED」, 체크리스트 6)
-        String agentName = memberRepository.findById(agentId).map(Member::getName).orElse(null);
+        // 상담원 이름은 처음에 잠근 상담원 행에서 가져온다
         sendAfterCommit("/topic/chats/" + consultationId,
-            ConsultationAcceptedMessage.of(consultationId, agentName, consultation.getAcceptedAt()));
+            ConsultationAcceptedMessage.of(consultationId, agent.getName(), consultation.getAcceptedAt()));
 
         ChatAcceptResponseDTO response = new ChatAcceptResponseDTO();
         response.setConsultationId(consultation.getConsultationId());
