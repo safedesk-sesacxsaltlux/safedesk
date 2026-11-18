@@ -1,6 +1,6 @@
 import Link from "next/link";
-import Icon from "../_components/Icon";
 import { CustomerHeader } from "../_components/Headers";
+import StartChatButton from "./StartChatButton";
 
 export const metadata = { title: "고객 메인 · SafeDesk" };
 
@@ -22,15 +22,7 @@ export default function CustomerHome() {
               AI 상담원이 먼저 답변을 드립니다. 해결되지 않으면 언제든 ‘상담원
               연결’을 눌러 주세요.
             </p>
-            <Link href="/customer/chat" className="btn btn-primary btn-lg" style={{ alignSelf: "flex-start" }}>
-              <Icon name="chat" size={18} />
-              <span>상담 시작</span>
-            </Link>
-            <div className="dashed">
-              이용정지 상태일 때: 버튼 비활성 + “이용정지 중입니다 (해제 예정일
-              YYYY.MM.DD)” 안내 →{" "}
-              <Link href="/customer/suspended">이용정지 안내 화면으로 이동</Link>
-            </div>
+            <StartChatButton />
           </section>
 
           <section className="card stack gap-12" style={{ flex: "1 1 280px", padding: 28, borderRadius: 16 }}>
