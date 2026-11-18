@@ -52,14 +52,6 @@ export default function Home() {
             드립니다. 상담원을 보호하기 위해 폭언은 자동으로 감지되어 경고 및
             이용 제한이 적용됩니다.
           </p>
-          <div className="stack gap-12" style={{ flexDirection: "row", flexWrap: "wrap", paddingTop: 8 }}>
-            <Link href="/login" className="btn btn-primary btn-lg">
-              상담 시작하기
-            </Link>
-            <Link href="/login" className="btn btn-lg">
-              상담원 · 관리자 로그인
-            </Link>
-          </div>
         </div>
         <div className="placeholder">[서비스 일러스트 / 채팅 미리보기 이미지]</div>
       </section>

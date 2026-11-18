@@ -28,16 +28,6 @@ export default function WaitingPage() {
             <h1 style={{ fontSize: 24 }}>상담원을 연결하고 있어요</h1>
             <p className="muted" style={{ fontSize: 15 }}>화면을 닫아도 대기 순서는 유지됩니다.</p>
           </div>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
-            <div className="wait-stat">
-              <span>내 대기 순번</span>
-              <b>[N]번째</b>
-            </div>
-            <div className="wait-stat">
-              <span>예상 대기 시간</span>
-              <b>약 [N]분</b>
-            </div>
-          </div>
           <div className="alert alert-warn" style={{ maxWidth: 460, textAlign: "left" }}>
             상담원도 누군가의 가족입니다. 상담 중 욕설·폭언이 감지되면 경고 후
             상담이 자동 종료되며, 이용이 제한될 수 있습니다.
@@ -49,14 +39,6 @@ export default function WaitingPage() {
               <WaitForAgent />
             </Suspense>
           </div>
-        </div>
-
-        <div className="chat-foot" style={{ gap: 6 }}>
-          <span className="small bold muted" style={{ fontSize: 12 }}>예외 상태</span>
-          <span className="small muted">
-            상담원 부재: “지금은 연결 가능한 상담원이 없습니다. 잠시 후 다시 시도해
-            주세요.” + [다시 시도] [AI 상담으로 돌아가기]
-          </span>
         </div>
       </div>
     </div>

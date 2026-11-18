@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clearLogin, getAccessToken, refreshAccessToken } from "../_lib/auth";
 
@@ -36,13 +37,13 @@ export default function LogoutButton() {
       // 서버에 닿지 않아도 아래에서 로그인 정보를 지운다
     }
     clearLogin();
-    router.replace("/login");
+    router.replace("/");
   }
 
   // 기존 헤더 스타일(a.logout)을 그대로 쓰기 위해 링크 모양을 유지한다
   return (
-    <a href="/login" className="logout" onClick={handleClick}>
+    <Link href="/" className="logout" onClick={handleClick}>
       로그아웃
-    </a>
+    </Link>
   );
 }

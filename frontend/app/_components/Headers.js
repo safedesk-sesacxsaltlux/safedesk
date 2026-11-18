@@ -94,9 +94,9 @@ export function AgentHeader({ active, busy = false }) {
 
 const ADMIN_NAV = [
   { key: "dashboard", href: "/admin", label: "대시보드" },
+  { key: "history", href: "/admin/history", label: "상담 이력" },
   { key: "sanctions", href: "/admin/sanctions", label: "제재 관리" },
   { key: "policy", href: "/admin/policy", label: "정책 관리" },
-  { key: "history", href: "/admin/history", label: "상담 이력" },
 ];
 
 export function AdminHeader({ active }) {
