@@ -6,6 +6,7 @@ public class ChatQueueResponseDTO {
 
     private long consultationId;    // 상담 ID
     private String customerId;    // 고객 ID
+    private String customerName;  // 고객 이름 (member.name) — 상담원 대기열에 회원 번호 대신 표시
     private String consultationStatus;    // 상담 상태
     private LocalDateTime queuedAt; // 대기열 진입 시각
     private long waitingTime;   // 대기 시간
@@ -34,6 +35,14 @@ public class ChatQueueResponseDTO {
 
     public void setConsultationId(long consultationId) {
         this.consultationId = consultationId;
+    }
+
+    public String getCustomerName() {
+        return customerName;
+    }
+
+    public void setCustomerName(String customerName) {
+        this.customerName = customerName;
     }
 
     public String getCustomerId() {

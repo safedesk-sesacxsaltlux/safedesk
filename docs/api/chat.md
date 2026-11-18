@@ -51,6 +51,7 @@
   {
     "consultationId": 101,
     "customerId": "12",
+    "customerName": "김고객",
     "consultationStatus": "QUEUED",
     "requestedAt": "2026-11-11T13:00:00",
     "waitingTime": 300
@@ -58,6 +59,7 @@
   {
     "consultationId": 102,
     "customerId": "15",
+    "customerName": "이고객",
     "consultationStatus": "QUEUED",
     "requestedAt": "2026-11-11T13:03:00",
     "waitingTime": 120
@@ -69,6 +71,7 @@
 | --- | --- | --- | --- |
 | consultationId | Long | Y | 상담 고유 번호 |
 | customerId | String | Y | 고객 식별 번호 |
+| customerName | String | N | 고객 이름 (`member.name`). 상담원 대기열 화면에 회원 번호 대신 표시 |
 | consultationStatus | String | Y | 상담 상태. 조회 대상은 QUEUED |
 | requestedAt | LocalDateTime | Y | 상담 대기 요청 시각 |
 | waitingTime | long | Y | 상담 대기 시간. 단위 확인 필요 |

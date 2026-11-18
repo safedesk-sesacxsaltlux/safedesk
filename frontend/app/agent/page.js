@@ -187,7 +187,7 @@ export default function AgentConsolePage() {
                       }}
                     >
                       <td>{i + 1}</td>
-                      <td>{q.customerId}</td>
+                      <td>{q.customerName ?? q.customerId}</td>
                       <td>{q.inquirySummary ?? q.inquiryCategory ?? "-"}</td>
                       <td>{formatSeconds(q.waitingTime)}</td>
                       <td style={{ textAlign: "right", padding: "10px 16px" }}>
@@ -223,7 +223,7 @@ export default function AgentConsolePage() {
                 <>
                   <span className="small muted">
                     상담번호 C-{String(selected.consultationId).padStart(6, "0")} · 고객{" "}
-                    {selected.customerId} · 대기 {formatSeconds(selected.waitingTime)}
+                    {selected.customerName ?? selected.customerId} · 대기 {formatSeconds(selected.waitingTime)}
                   </span>
                   <div className="kv" style={{ padding: 0, border: 0 }}>
                     <span>문의 분류</span>
