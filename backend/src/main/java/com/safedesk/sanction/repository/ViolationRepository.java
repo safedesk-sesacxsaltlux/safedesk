@@ -2,7 +2,10 @@ package com.safedesk.sanction.repository;
 
 import com.safedesk.sanction.entity.Violation;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -21,4 +24,21 @@ public interface ViolationRepository extends JpaRepository<Violation, Long> {
      * 정지가 풀려도 초기화하지 않으므로 기간 조건 없이 전부 센다 (REQ-020).
      */
     long countByCustomerId(Long customerId);
+
+    // API-ADM-05 고객의 위반 전체
+    @Query(value = """
+            select v.violation_id    as violationId,
+                   v.consultation_id as consultationId,
+                   c.closed_by       as closedBy,
+                   v.created_at      as violatedAt,
+                   (select count(*) from abuse_log a
+                     where a.consultation_id = v.consultation_id) as abusiveMessageCount,
+                   s.suspend_days    as appliedDurationDays
+            from violation v
+            join consultation c on c.consultation_id = v.consultation_id
+            left join sanction s on s.violation_id = v.violation_id
+            where v.customer_id = :customerId
+            order by v.violation_id
+            """, nativeQuery = true)
+    List<ViolationHistoryRow> findHistoryByCustomerId(@Param("customerId") Long customerId);
 }
