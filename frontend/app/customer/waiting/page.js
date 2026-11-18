@@ -1,5 +1,7 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import Icon from "../../_components/Icon";
+import CancelWaitButton from "./CancelWaitButton";
 
 export const metadata = { title: "상담원 연결 대기 · SafeDesk" };
 
@@ -9,12 +11,12 @@ export default function WaitingPage() {
       <div className="chat-shell">
         <div className="chat-top">
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <Link href="/customer/chat" aria-label="뒤로" className="icon-link">
+            <Link href="/customer" aria-label="뒤로" className="icon-link">
               <Icon name="back" />
             </Link>
             <div className="stack">
               <span className="bold" style={{ fontSize: 16 }}>상담원 연결 중</span>
-              <span className="muted" style={{ fontSize: 12 }}>상태 QUEUED</span>
+              <span className="muted" style={{ fontSize: 12 }}>대기 중</span>
             </div>
           </div>
         </div>
@@ -40,7 +42,10 @@ export default function WaitingPage() {
             상담이 자동 종료되며, 이용이 제한될 수 있습니다.
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
-            <Link href="/customer" className="btn">연결 취소</Link>
+            {/* 주소의 chatId 를 읽는 버튼만 브라우저에서 그린다 (useSearchParams) */}
+            <Suspense fallback={null}>
+              <CancelWaitButton />
+            </Suspense>
             <Link href="/customer/live" className="btn btn-primary" style={{ fontWeight: 500 }}>
               (시연) 상담원 수락됨 → 채팅
             </Link>

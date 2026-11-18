@@ -50,6 +50,11 @@ export function requestHandoff(chatId) {
   return request(`/api/chats/${chatId}/handoff`, { method: "PATCH" });
 }
 
+// CUS-04 고객 상담 종료 (AI 응대·대기 중)
+export function cancelChat(chatId) {
+  return request(`/api/chats/${chatId}/cancel`, { method: "PATCH" });
+}
+
 // 상담 상태별 고객 화면 (contract.md 화면 라우트)
 export function chatPath(status, chatId) {
   switch (status) {
