@@ -7,6 +7,7 @@ import com.safedesk.auth.jwt.JwtProvider;
 import com.safedesk.auth.jwt.TokenBlacklist;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -51,50 +52,25 @@ public class SecurityConfig {
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
-                // 위에서부터 처음 맞는 규칙이 적용되므로, 인증이 필요한 /api/auth 경로를 /api/auth/** 보다 먼저 둔다.
+                // 위에서부터 처음 맞는 규칙이 적용된다. 역할 규칙은 docs/api 명세의 "인증" 열 기준.
+                // 본인 상담인지 같은 세부 확인은 각 서비스에서 memberId로 한다 (예: CHAT_ACCESS_DENIED).
+                // WebSocket(/app/chats/**) 인증은 HTTP 규칙이 아니라 StompAuthChannelInterceptor 가 맡는다.
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/me", "/api/auth/logout").authenticated()
-                        // HIS-06 상담 상세: 로그인만 확인 (토큰 없으면 401). 본인 상담인지는 서비스에서 확인
-                        .requestMatchers("/api/consultations/*/history").authenticated()
-                        // HIS-05 전체 상담 이력: 로그인만 확인 (토큰 없으면 401). 관리자인지는 컨트롤러에서 확인(403)
-                        .requestMatchers("/api/admin/consultations").authenticated()
-                        .requestMatchers("/api/agents/me/consultations").authenticated()
-                        .requestMatchers("/api/agents/me/customers").authenticated()
-                        // MOD-05 경고 내역 조회: 로그인만 확인 (토큰 없으면 401). 역할은 컨트롤러(403), 담당 상담원인지는 서비스에서 확인(403)
-                        .requestMatchers("/api/consultations/*/warnings").authenticated()
-                        // HIS-01·02 고객 내 이력·이용 상태: 로그인만 확인 (401). 고객인지는 컨트롤러에서 확인(403)
-                        .requestMatchers("/api/customers/me/**").authenticated()
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/auth/login", "/api/auth/signup", "/api/auth/refresh",
+                                         "/api/auth/check-login-id").permitAll()
+                        .requestMatchers("/ws/**", "/error").permitAll()
 
-                        // TODO(인증): API별 서버 권한 검사. docs/api 명세의 "인증" 열 기준으로 작성함.
-                        //  주석 해제 전 확인할 것
-                        //  1. 각 API 담당자와 경로·권한 합의 (명세가 바뀌면 함께 수정)
-                        //  2. 프론트의 모든 API 호출에 Authorization: Bearer 헤더가 붙어 있는지
-                        //     (붙어 있지 않으면 해제하는 순간 해당 화면이 전부 401)
-                        //  3. 맨 아래 anyRequest().permitAll()을 anyRequest().authenticated()로 변경
-                        //  4. import org.springframework.http.HttpMethod; 추가
-                        //  WebSocket(/app/chats/**) 인증은 HTTP 규칙이 아니라 STOMP CONNECT 인터셉터에서 따로 처리해야 함.
-                        //
-                        // 관리자 (policy.md, sanction.md, faq.md, history.md, customer-chat.md API-DEV-01)
-                        // .requestMatchers("/api/admin/**", "/api/dev/**").hasRole("ADMIN")
-                        //
-                        // 고객 본인 (history.md, customer-chat.md)
-                        // .requestMatchers("/api/customers/me/**").hasRole("CUSTOMER")
-                        // .requestMatchers(HttpMethod.POST, "/api/chats", "/api/chats/*/bot-messages").hasRole("CUSTOMER")
-                        // .requestMatchers(HttpMethod.PATCH, "/api/chats/*/handoff", "/api/chats/*/cancel").hasRole("CUSTOMER")
-                        //
-                        // 상담원 본인 (history.md, chat.md)
-                        // .requestMatchers("/api/agents/me/**").hasRole("AGENT")
-                        //
-                        // 경고·강제 종료 (moderation.md). POST 경고는 AGENT만 가능해서 GET 규칙보다 먼저 둔다.
-                        // .requestMatchers(HttpMethod.POST, "/api/consultations/*/warnings").hasRole("AGENT")
-                        // .requestMatchers("/api/consultations/*/warnings", "/api/consultations/*/terminate").hasAnyRole("AGENT", "ADMIN")
-                        //
-                        // 그 밖의 "필요" API(/api/chats/queue, /accept, /close, 상담 이력 상세 등)는 로그인만 확인하고,
-                        // 본인 상담인지는 각 서비스에서 memberId로 확인한다 (예: CHAT_ACCESS_DENIED).
+                        .requestMatchers("/api/admin/**", "/api/dev/**").hasRole("ADMIN")
 
-                        .requestMatchers("/api/auth/**", "/ws/**").permitAll()
-                        .anyRequest().permitAll()
+                        .requestMatchers("/api/customers/me/**").hasRole("CUSTOMER")
+                        .requestMatchers(HttpMethod.POST, "/api/chats", "/api/chats/*/bot-messages").hasRole("CUSTOMER")
+                        .requestMatchers(HttpMethod.PATCH, "/api/chats/*/handoff", "/api/chats/*/cancel").hasRole("CUSTOMER")
+
+                        .requestMatchers("/api/agents/me/**").hasRole("AGENT")
+                        .requestMatchers(HttpMethod.GET, "/api/chats/queue").hasRole("AGENT")
+                        .requestMatchers(HttpMethod.PATCH, "/api/chats/*/accept", "/api/chats/*/close").hasRole("AGENT")
+
+                        .anyRequest().authenticated()
                 );
 
         return http.build();
