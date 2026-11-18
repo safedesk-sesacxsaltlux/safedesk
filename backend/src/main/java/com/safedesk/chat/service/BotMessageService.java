@@ -12,6 +12,7 @@ import com.safedesk.chat.entity.HandoffReason;
 import com.safedesk.chat.entity.Message;
 import com.safedesk.chat.repository.BotMessageRepository;
 import com.safedesk.chat.repository.ConsultationRepository;
+import com.safedesk.chat.repository.CustomerConsultationRepository;
 import com.safedesk.chat.repository.MessageRepository;
 import com.safedesk.common.exception.BusinessException;
 import com.safedesk.common.exception.ErrorCode;
@@ -52,6 +53,7 @@ public class BotMessageService {
     static final String MSG_REPEATED = "같은 문의가 반복되고 있어요. 상담원을 연결해 드릴까요?";
 
     private final ConsultationRepository consultationRepository;
+    private final CustomerConsultationRepository customerConsultationRepository;
     private final MessageRepository messageRepository;
     private final BotMessageRepository botMessageRepository;
     private final FaqMatcher faqMatcher;
@@ -59,12 +61,14 @@ public class BotMessageService {
     private final TransactionTemplate transactionTemplate;
 
     public BotMessageService(ConsultationRepository consultationRepository,
+                             CustomerConsultationRepository customerConsultationRepository,
                              MessageRepository messageRepository,
                              BotMessageRepository botMessageRepository,
                              FaqMatcher faqMatcher,
                              AiGateway aiGateway,
                              TransactionTemplate transactionTemplate) {
         this.consultationRepository = consultationRepository;
+        this.customerConsultationRepository = customerConsultationRepository;
         this.messageRepository = messageRepository;
         this.botMessageRepository = botMessageRepository;
         this.faqMatcher = faqMatcher;
@@ -88,13 +92,14 @@ public class BotMessageService {
 
         // ③ 봇 메시지 저장 + 처음 매칭된 FAQ 기록 (짧은 트랜잭션)
         // AI 를 기다리는 동안 고객이 상담원 연결(CUS-03)·종료(CUS-04)를 눌렀을 수 있어서 상태를 다시 본다.
-        // 락 없이 읽으면 Consultation 의 모든 컬럼이 UPDATE 되어, 그사이 바뀐 상태(QUEUED·CLOSED)를 AI_CHAT 으로 되돌린다.
-        // 그래서 CUS-03 handoff 와 같은 행 락을 걸고 읽는다. 상태가 바뀌었으면 ①과 같은 에러를 준다 (고객 메시지는 ①에서 이미 저장됨).
+        // 상태는 행을 잠그고 값으로 읽고, FAQ 는 두 컬럼만 UPDATE 한다. ①에서 읽은 Consultation 엔티티는 쓰지 않는다
+        // (open-in-view 로 예전 상태가 남아 있어, 엔티티를 고치면 그사이 바뀐 QUEUED·CLOSED 를 AI_CHAT 으로 되돌린다).
+        // 상태가 바뀌었으면 ①과 같은 에러를 준다 (고객 메시지는 ①에서 이미 저장됨).
         Message botMessage = transactionTemplate.execute(status -> {
-            Consultation consultation = consultationRepository.findWithLockByConsultationId(chatId)
+            String current = customerConsultationRepository.lockStatus(chatId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.CHAT_NOT_FOUND));
-            requireBotChat(consultation);
-            match.ifPresent(faq -> consultation.recordFirstFaqMatch(faq.faqId(), faq.category()));
+            requireBotChat(current);
+            match.ifPresent(faq -> customerConsultationRepository.recordFirstFaqMatch(chatId, faq.faqId(), faq.category()));
             return messageRepository.save(newMessage(chatId, SENDER_BOT, null, reply.content()));
         });
 
@@ -113,13 +118,13 @@ public class BotMessageService {
         if (consultation.getCustomerId() != customerId) {
             throw new BusinessException(ErrorCode.CHAT_ACCESS_DENIED);
         }
-        requireBotChat(consultation);
+        requireBotChat(consultation.getStatus());
         return consultation;
     }
 
     // AI 응대 중(AI_CHAT)이 아니면 상태에 맞는 에러
-    private static void requireBotChat(Consultation consultation) {
-        switch (consultation.getStatus()) {
+    private static void requireBotChat(String status) {
+        switch (status) {
             case ConsultationStatus.AI_CHAT -> { }
             case ConsultationStatus.QUEUED, ConsultationStatus.IN_PROGRESS ->
                 throw new BusinessException(ErrorCode.CHAT_NOT_IN_BOT);

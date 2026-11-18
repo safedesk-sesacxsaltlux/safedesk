@@ -11,6 +11,7 @@ import com.safedesk.chat.entity.HandoffReason;
 import com.safedesk.chat.entity.Message;
 import com.safedesk.chat.repository.BotMessageRepository;
 import com.safedesk.chat.repository.ConsultationRepository;
+import com.safedesk.chat.repository.CustomerConsultationRepository;
 import com.safedesk.chat.repository.MessageRepository;
 import com.safedesk.common.exception.BusinessException;
 import com.safedesk.common.exception.ErrorCode;
@@ -43,6 +44,7 @@ class BotMessageServiceTest {
     private static final FaqMatch WATER_FAQ = new FaqMatch(3L, "상하수도", "수도요금 납부 방법", "청구서, 자동납부로 낼 수 있습니다.", 4);
 
     private ConsultationRepository consultationRepository;
+    private CustomerConsultationRepository customerConsultationRepository;
     private MessageRepository messageRepository;
     private BotMessageRepository botMessageRepository;
     private FaqMatcher faqMatcher;
@@ -53,18 +55,20 @@ class BotMessageServiceTest {
     @BeforeEach
     void setUp() {
         consultationRepository = mock(ConsultationRepository.class);
+        customerConsultationRepository = mock(CustomerConsultationRepository.class);
         messageRepository = mock(MessageRepository.class);
         botMessageRepository = mock(BotMessageRepository.class);
         faqMatcher = mock(FaqMatcher.class);
         aiGateway = mock(AiGateway.class);
         // 트랜잭션 매니저는 가짜라 실제 트랜잭션 없이 콜백만 실행된다
         TransactionTemplate transactionTemplate = new TransactionTemplate(mock(PlatformTransactionManager.class));
-        service = new BotMessageService(consultationRepository, messageRepository, botMessageRepository,
+        service = new BotMessageService(consultationRepository, customerConsultationRepository, messageRepository, botMessageRepository,
             faqMatcher, aiGateway, transactionTemplate);
 
         consultation = Consultation.start(CUSTOMER_ID, 1L);   // AI_CHAT
         when(consultationRepository.findById(CHAT_ID)).thenReturn(Optional.of(consultation));
-        when(consultationRepository.findWithLockByConsultationId(CHAT_ID)).thenReturn(Optional.of(consultation));
+        // ③의 잠금 조회는 그 시점의 상태를 돌려준다 (AI 호출 중에 바뀐 상태도 반영)
+        when(customerConsultationRepository.lockStatus(CHAT_ID)).thenAnswer(invocation -> Optional.of(consultation.getStatus()));
         when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(faqMatcher.match(anyString())).thenReturn(Optional.empty());
         when(botMessageRepository.findFirstByConsultationIdAndSenderTypeAndMessageIdLessThanOrderByMessageIdDesc(
@@ -93,8 +97,7 @@ class BotMessageServiceTest {
         assertThat(response.customerMessage().content()).isEqualTo("수도요금 어떻게 내요?");
         assertThat(response.faqId()).isEqualTo(3L);
         assertThat(response.handoffSuggested()).isFalse();
-        assertThat(consultation.getFaqId()).isEqualTo(3L);
-        assertThat(consultation.getInquiryCategory()).isEqualTo("상하수도");
+        verify(customerConsultationRepository).recordFirstFaqMatch(CHAT_ID, 3L, "상하수도");
     }
 
     @Test
@@ -184,7 +187,7 @@ class BotMessageServiceTest {
         assertErrorCode(ErrorCode.CHAT_NOT_IN_BOT);
         verify(messageRepository, times(1)).save(any());   // 고객 메시지만 남는다
         assertThat(consultation.getStatus()).isEqualTo("QUEUED");
-        assertThat(consultation.getFaqId()).isNull();      // 대기열 상태를 건드리지 않는다
+        verify(customerConsultationRepository, never()).recordFirstFaqMatch(anyLong(), anyLong(), anyString());
     }
 
     @Test
