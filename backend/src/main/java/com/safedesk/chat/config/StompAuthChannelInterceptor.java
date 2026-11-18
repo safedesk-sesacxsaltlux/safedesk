@@ -42,6 +42,7 @@ import java.util.regex.Pattern;
  *   브라우저 WebSocket 은 HTTP 헤더를 못 붙여서 STOMP CONNECT 프레임 헤더로 받는다.
  *   검증한 토큰과 만료 시각은 세션에 저장해 두고, 이후 SEND·SUBSCRIBE 때마다 다시 확인한다.
  * - SUBSCRIBE: {@code /topic/chats/{chatId}} 는 그 상담의 고객이나 수락한 상담원만 구독할 수 있다.
+ *   없는 상담과 남의 상담은 똑같이 {@code CHAT_ACCESS_DENIED} 로 거부한다 (상담 번호 존재 여부를 드러내지 않음).
  *   {@code /user/queue/errors} 는 본인 오류 큐라 누구나 구독할 수 있다.
  * - SEND: {@code /app/chats/{chatId}/messages} 로만 보낼 수 있고, 그 상담의 고객이나 수락한 상담원이어야 한다.
  *   {@code /topic/**}, {@code /user/**}, {@code /queue/**} 처럼 브로커로 바로 가는 목적지는 모두 거부한다.
@@ -185,11 +186,13 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
         return checkParticipant(memberId, Long.parseLong(matcher.group(1)));
     }
 
-    // 상담의 고객이거나 수락한 상담원이면 null
+    // 상담의 고객이거나 수락한 상담원이면 null.
+    // 없는 상담도 남의 상담과 같은 CHAT_ACCESS_DENIED 로 돌려줘서, 응답으로 상담 번호가 있는지 알 수 없게 한다 (PR #80 리뷰).
+    // REST(API-003·004·006 등)는 계약(contract.md, customer-chat.md)대로 404 CHAT_NOT_FOUND 를 유지한다.
     private ErrorCode checkParticipant(Long memberId, long consultationId) {
         Consultation consultation = consultationRepository.findById(consultationId).orElse(null);
         if (consultation == null) {
-            return ErrorCode.CHAT_NOT_FOUND;
+            return ErrorCode.CHAT_ACCESS_DENIED;
         }
 
         boolean isCustomer = memberId.equals(consultation.getCustomerId());

@@ -61,7 +61,8 @@ export function openChatSocket(chatId, { onEvent, onError, onConnected, onDiscon
       }
       return;
     }
-    if (code === "CHAT_ACCESS_DENIED" || code === "CHAT_NOT_FOUND" || code === "ACCESS_DENIED") {
+    // 없는 상담도 서버가 CHAT_ACCESS_DENIED 로 돌려준다 (상담 번호 존재 여부를 드러내지 않음)
+    if (code === "CHAT_ACCESS_DENIED" || code === "ACCESS_DENIED") {
       client.deactivate();
       onError?.({ type: "ERROR", errorCode: code, message: "이 상담에 접근할 수 없습니다." });
     }

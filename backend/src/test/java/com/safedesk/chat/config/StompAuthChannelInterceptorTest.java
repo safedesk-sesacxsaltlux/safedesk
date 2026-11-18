@@ -144,12 +144,12 @@ class StompAuthChannelInterceptorTest {
     }
 
     @Test
-    @DisplayName("없는 상담으로는 보낼 수 없다 → 버리고 오류 큐로 CHAT_NOT_FOUND")
+    @DisplayName("없는 상담으로는 보낼 수 없다 → 남의 상담과 같은 CHAT_ACCESS_DENIED (상담 번호 존재 여부를 드러내지 않음)")
     void sendToUnknownConsultation() {
         when(consultationRepository.findById(3L)).thenReturn(Optional.empty());
 
         assertThat(interceptor.preSend(frame(StompCommand.SEND, "/app/chats/3/messages", user(100L)), channel)).isNull();
-        assertThat(notifiedErrorCode("100")).isEqualTo("CHAT_NOT_FOUND");
+        assertThat(notifiedErrorCode("100")).isEqualTo("CHAT_ACCESS_DENIED");
     }
 
     @Test
@@ -262,12 +262,13 @@ class StompAuthChannelInterceptorTest {
     }
 
     @Test
-    @DisplayName("없는 상담이나 허용하지 않은 경로는 구독할 수 없다")
+    @DisplayName("없는 상담이나 허용하지 않은 경로는 구독할 수 없다 (없는 상담은 남의 상담과 같은 CHAT_ACCESS_DENIED)")
     void subscribeUnknownDestination() {
         when(consultationRepository.findById(2L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> interceptor.preSend(frame(StompCommand.SUBSCRIBE, "/topic/chats/2", user(100L)), channel))
-            .isInstanceOf(MessageDeliveryException.class);
+            .isInstanceOf(MessageDeliveryException.class)
+            .hasMessage("CHAT_ACCESS_DENIED");
         assertThatThrownBy(() -> interceptor.preSend(frame(StompCommand.SUBSCRIBE, "/topic/chats/*", user(100L)), channel))
             .isInstanceOf(MessageDeliveryException.class);
         assertThatThrownBy(() -> interceptor.preSend(frame(StompCommand.SUBSCRIBE, "/topic/other", user(100L)), channel))

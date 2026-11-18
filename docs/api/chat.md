@@ -594,7 +594,7 @@ WebSocket/STOMP 메시지 처리에는 REST API의 HTTP 상태 코드를 그대�
 | 상황 | 처리 방식 | 메시지 예시 |
 | --- | --- | --- |
 | JWT 누락 또는 유효하지 않음 | 연결 또는 메시지 처리 거부 | 로그인이 필요합니다. |
-| 해당 상담이 존재하지 않음 | 메시지 전송 거부 | 상담을 찾을 수 없습니다. |
+| 해당 상담이 존재하지 않음 | 메시지 전송·구독 거부 (`CHAT_ACCESS_DENIED`, 남의 상담과 같은 응답) | 접근 권한이 없습니다. |
 | 상담 참여자가 아닌 사용자가 전송 | 메시지 전송 거부 | 해당 상담에 접근할 권한이 없습니다. |
 | 다른 상담원에게 배정된 상담에 전송 | 메시지 전송 거부 | 해당 상담에 접근할 권한이 없습니다. |
 | 메시지 내용이 비어 있음 | 메시지 전송 거부 | 메시지 내용을 입력해주세요. |
@@ -621,7 +621,7 @@ WebSocket/STOMP 메시지 처리에는 REST API의 HTTP 상태 코드를 그대�
 12. 상담이 `CLOSED` 또는 `TERMINATED` 상태가 되면 추가 상담 메시지 전송을 차단한다.
 13. 폭언 누적에 따른 경고, 자동 종료 및 제재는 한수민 담당 기능과 연동한다.
 14. SEND는 `/app/chats/{chatId}/messages`로만 받는다. `/topic/**`, `/user/**`, `/queue/**` 등 브로커로 바로 가는 목적지로 보내면 거부하고 보낸 사람의 `/user/queue/errors`로 `ACCESS_DENIED`를 알린다 (가짜 메시지·가짜 `CONSULTATION_CLOSED` 방지, PR #80 리뷰).
-15. SEND 목적지가 맞아도 그 상담의 고객이나 수락한 상담원이 아니면 거부한다 (`CHAT_ACCESS_DENIED`, 없는 상담은 `CHAT_NOT_FOUND`).
+15. SEND 목적지가 맞아도 그 상담의 고객이나 수락한 상담원이 아니면 거부한다 (`CHAT_ACCESS_DENIED`). SUBSCRIBE도 같다. 없는 상담도 남의 상담과 똑같이 `CHAT_ACCESS_DENIED`로 거부해서, 응답으로 상담 번호가 있는지 알 수 없게 한다 (PR #80 리뷰). REST(API-003·004·006)는 계약대로 없는 상담이면 404 `CHAT_NOT_FOUND`를 유지한다.
 16. CONNECT 때 검증한 토큰과 만료 시각을 세션에 저장하고, SEND·SUBSCRIBE 때마다 로그아웃(블랙리스트)·만료를 다시 확인한다. 실패하면 `/user/queue/errors`로 `UNAUTHORIZED`를 알리고 그 프레임을 버린다. 클라이언트는 토큰을 재발급해 다시 연결한다.
 17. 본문이 JSON이 아니거나 형식이 맞지 않으면 `/user/queue/errors`로 `INVALID_INPUT`을 알린다.
 
