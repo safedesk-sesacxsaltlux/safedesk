@@ -7,5 +7,6 @@ import java.util.List;
 
 public interface MessageRepository extends JpaRepository<Message, Long> {
 
-    List<Message> findByConsultationIdOrderByCreatedAtAsc(long consultationId);
+    // 같은 밀리초에 저장된 메시지도 순서가 항상 같도록 messageId 를 보조 정렬로 둔다 (PR #66 리뷰)
+    List<Message> findByConsultationIdOrderByCreatedAtAscMessageIdAsc(long consultationId);
 }

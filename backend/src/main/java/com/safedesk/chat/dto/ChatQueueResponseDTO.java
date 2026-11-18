@@ -9,6 +9,24 @@ public class ChatQueueResponseDTO {
     private String consultationStatus;    // 상담 상태
     private LocalDateTime queuedAt; // 대기열 진입 시각
     private long waitingTime;   // 대기 시간
+    private String inquiryCategory; // AI 상담에서 처음 매칭된 FAQ 분류
+    private String inquirySummary;  // AI 상담 요약 (상담원 콘솔 「AI 상담 요약」 칸)
+
+    public String getInquiryCategory() {
+        return inquiryCategory;
+    }
+
+    public void setInquiryCategory(String inquiryCategory) {
+        this.inquiryCategory = inquiryCategory;
+    }
+
+    public String getInquirySummary() {
+        return inquirySummary;
+    }
+
+    public void setInquirySummary(String inquirySummary) {
+        this.inquirySummary = inquirySummary;
+    }
 
     public long getConsultationId() {
         return consultationId;
