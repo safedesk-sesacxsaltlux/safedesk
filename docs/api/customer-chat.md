@@ -155,6 +155,7 @@ Request Body 없음. customerId는 JWT에서 꺼낸다.
 | QUEUED·IN_PROGRESS 상태 | 409 | CHAT_NOT_IN_BOT | 대기 중에는 AI가 답하지 않는다. 상태에 맞는 화면으로 이동 |
 | CLOSED·TERMINATED 상태 | 409 | CHAT_CLOSED | 종료 결과 화면으로 이동 |
 | AI 실패·10초 초과 | 200 | - | 에러로 보내지 않는다. answerSource=FAQ_FALLBACK 또는 NO_ANSWER |
+| AI 응답을 기다리는 중 상담원 연결·종료 | 409 | CHAT_NOT_IN_BOT 또는 CHAT_CLOSED | 봇 답변은 저장하지 않는다. 고객 메시지는 이미 저장됐다. 상태에 맞는 화면으로 이동 |
 
 프론트 요청 타임아웃은 15초로 둔다.
 
@@ -167,6 +168,7 @@ Request Body 없음. customerId는 JWT에서 꺼낸다.
 - 스트리밍(SSE) 대신 완성된 답변을 주고 화면에서 한 글자씩 보인다. 목업 답변은 이미 완성된 문장이다. SSE는 기본 EventSource에 JWT 헤더를 실을 수 없어 별도 처리가 필요하다. 2차에 실제 AI로 바꿀 때 같은 URL에 `text/event-stream`을 추가한다.
 - 프론트 타임아웃을 15초로 둔다. 서버가 10초에 AI를 끊고 대체 답변을 만들 시간이 필요하다.
 - 반복 판정은 "같은 FAQ 2회 연속"으로 한다. 문장을 그대로 비교하면 표현만 바꾼 같은 질문을 놓친다.
+- 봇 답변을 저장할 때 상담 행을 잠그고 상태를 다시 본다. AI를 기다리는 동안 고객이 상담원 연결이나 종료를 누를 수 있다. 다시 보지 않으면 대기 중인 상담에 AI 답변이 끼어들고, 첫 FAQ 기록이 바뀐 상태를 AI_CHAT으로 되돌려 대기열에서 빠진다.
 - 봇 메시지의 senderType은 `AI`다. message 테이블 CHECK 제약(`ck_message_sender_type`: CUSTOMER·AGENT·AI·SYSTEM)과 HIS-06이 `AI`를 쓴다. (contract.md D-05의 `BOT` 제안과 다름, 확정 필요)
 - 상담원 연결을 제안할 때(CUSTOMER_REQUEST, REPEATED_QUESTION)는 답을 주지 않으므로 answerSource를 NO_ANSWER로 둔다.
 - 목업 AI는 NORMAL 모드에서 매칭된 FAQ 답변을 돌려준다. 맞는 FAQ가 없으면 목업 문장을 돌려준다. 시연에서 질문을 되풀이하는 문장 대신 실제 안내가 보이게 하려는 것이다.

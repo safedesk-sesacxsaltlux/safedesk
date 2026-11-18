@@ -64,6 +64,7 @@ class BotMessageServiceTest {
 
         consultation = Consultation.start(CUSTOMER_ID, 1L);   // AI_CHAT
         when(consultationRepository.findById(CHAT_ID)).thenReturn(Optional.of(consultation));
+        when(consultationRepository.findWithLockByConsultationId(CHAT_ID)).thenReturn(Optional.of(consultation));
         when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(faqMatcher.match(anyString())).thenReturn(Optional.empty());
         when(botMessageRepository.findFirstByConsultationIdAndSenderTypeAndMessageIdLessThanOrderByMessageIdDesc(
@@ -157,6 +158,45 @@ class BotMessageServiceTest {
 
         assertThat(response.handoffReason()).isEqualTo(HandoffReason.REPEATED_QUESTION);
         verify(aiGateway, never()).reply(any());
+    }
+
+    @Test
+    @DisplayName("「직원」이 들어간 일반 문의는 상담원 요청으로 보지 않는다")
+    void sendWhenStaffMentionedInInquiry() {
+        givenAiSuccess();
+
+        BotMessageResponseDTO response = service.send(CHAT_ID, CUSTOMER_ID, "역 직원이 불친절했어요");
+
+        assertThat(response.handoffSuggested()).isFalse();
+        verify(aiGateway).reply(any());
+    }
+
+    @Test
+    @DisplayName("AI 응답을 기다리는 동안 상담원 연결을 누르면 봇 메시지를 저장하지 않고 CHAT_NOT_IN_BOT")
+    void sendWhenHandedOffDuringAiCall() {
+        when(faqMatcher.match(anyString())).thenReturn(Optional.of(WATER_FAQ));
+        // AI 호출 중에 고객이 상담원 연결(CUS-03)을 누른 상황
+        when(aiGateway.reply(any())).thenAnswer(invocation -> {
+            consultation.handoff();
+            return AiResult.success("[목업] 답변", 700);
+        });
+
+        assertErrorCode(ErrorCode.CHAT_NOT_IN_BOT);
+        verify(messageRepository, times(1)).save(any());   // 고객 메시지만 남는다
+        assertThat(consultation.getStatus()).isEqualTo("QUEUED");
+        assertThat(consultation.getFaqId()).isNull();      // 대기열 상태를 건드리지 않는다
+    }
+
+    @Test
+    @DisplayName("AI 응답을 기다리는 동안 상담을 종료하면 봇 메시지를 저장하지 않고 CHAT_CLOSED")
+    void sendWhenClosedDuringAiCall() {
+        when(aiGateway.reply(any())).thenAnswer(invocation -> {
+            consultation.close("CUSTOMER", "NORMAL");
+            return AiResult.success("[목업] 답변", 700);
+        });
+
+        assertErrorCode(ErrorCode.CHAT_CLOSED);
+        verify(messageRepository, times(1)).save(any());
     }
 
     @Test
