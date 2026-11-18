@@ -30,6 +30,35 @@ export async function apiGet(path, params) {
   }
 }
 
+// JSON 본문을 보내는 POST
+export async function apiPost(path, body) {
+  const url = `${API_BASE_URL}${path}`;
+  const send = () => fetch(url, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${getAccessToken()}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body ?? {}),
+  });
+
+  try {
+    let res = await send();
+    if (res.status === 401 && (await refreshAccessToken()) === "ok") {
+      res = await send();
+    }
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json?.success) {
+      return {
+        ok: false,
+        status: res.status,
+        errorCode: json?.errorCode ?? null,
+        message: json?.message ?? "요청을 처리하지 못했습니다.",
+      };
+    }
+    return { ok: true, data: json.data, message: json.message };
+  } catch {
+    return { ok: false, status: 0, errorCode: null, message: "서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요." };
+  }
+}
+
 // 빈 값(null, undefined, "", "ALL")은 보내지 않는다. → 서버에서 "조건 없음"
 function toQuery(params) {
   if (!params) return "";

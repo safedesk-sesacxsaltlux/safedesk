@@ -3,8 +3,10 @@
 // 관리자 제재 상세 (API-ADM-05 GET /api/admin/sanctions/{sanctionId})
 
 import Link from "next/link";
+import { useState } from "react";
 import { useApiGet } from "../../../_lib/useApiGet";
 import { formatDate, formatDateTime } from "../../../_lib/format";
+import ReleaseModal from "./ReleaseModal";
 
 const STATUS_BADGE = {
   SUSPENDED: { label: "정지 중", tone: "badge-danger" },
@@ -26,7 +28,20 @@ function consultationNo(id) {
 }
 
 export default function SanctionDetailView({ id }) {
+  const [reloadKey, setReloadKey] = useState(0);
+  const [notice, setNotice] = useState("");
+
+  function handleReleased(message) {
+    setNotice(message);
+    setReloadKey((k) => k + 1);
+  }
+
+  return <SanctionDetail key={reloadKey} id={id} notice={notice} onReleased={handleReleased} />;
+}
+
+function SanctionDetail({ id, notice, onReleased }) {
   const result = useApiGet(`/api/admin/sanctions/${id}`);
+  const [modalOpen, setModalOpen] = useState(false);
 
   if (result.status === "loading") {
     return <span className="small muted">제재 정보를 불러오는 중입니다.</span>;
@@ -63,10 +78,12 @@ export default function SanctionDetailView({ id }) {
 
           {s.releasable && (
             <>
-              <button type="button" className="btn btn-danger">제재 해제</button>
+              <button type="button" className="btn btn-danger" onClick={() => setModalOpen(true)}>제재 해제</button>
               <span className="small muted">해제해도 위반 이력은 보존됩니다.</span>
             </>
           )}
+
+          {notice && <span className="msg-ok">{notice}</span>}
 
           {s.release && (
             <div className="stack gap-4" style={{ borderTop: "1px solid var(--line)", paddingTop: 12 }}>
@@ -97,6 +114,10 @@ export default function SanctionDetailView({ id }) {
           </div>
         </section>
       </div>
+
+      {modalOpen && (
+        <ReleaseModal sanction={s} onClose={() => setModalOpen(false)} onReleased={onReleased} />
+      )}
     </>
   );
 }
