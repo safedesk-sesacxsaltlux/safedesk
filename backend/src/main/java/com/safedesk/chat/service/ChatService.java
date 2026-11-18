@@ -84,7 +84,10 @@ public class ChatService {
     @Transactional
     public void sendMessage(long consultationId, ChatMessageRequestDTO message) {
 
-        Consultation consultation = consultationRepository.findById(consultationId)
+        // 같은 상담의 메시지를 한 건씩 처리하려고 상담 행을 잠근다 (#59: 동시 폭언의 경고 수를 정확히 세기 위해).
+        // 트랜잭션의 첫 조회여야 한다. 일반 조회가 먼저 있으면 REPEATABLE READ 스냅샷이 고정돼 다른 쪽 경고가 안 보이고,
+        // 메시지 INSERT(외래키 공유 락) 뒤에 잠그면 두 트랜잭션이 서로를 기다리는 교착 상태가 된다.
+        Consultation consultation = consultationRepository.findWithLockByConsultationId(consultationId)
             .orElseThrow(() -> new BusinessException(ErrorCode.CHAT_NOT_FOUND));
 
         boolean shouldModerate = ConsultationStatus.IN_PROGRESS.equals(consultation.getStatus())

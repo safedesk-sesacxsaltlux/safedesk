@@ -144,7 +144,7 @@ public class ChatServiceTest {
         ModerationService moderationService = mock(ModerationService.class);
         Consultation consultation = mock(Consultation.class);
 
-        when(consultationRepository.findById(1L)).thenReturn(Optional.of(consultation));
+        when(consultationRepository.findWithLockByConsultationId(1L)).thenReturn(Optional.of(consultation));
         when(consultation.getStatus()).thenReturn(ConsultationStatus.IN_PROGRESS);
         when(messageRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(moderationService.processMessage("병신같네"))
@@ -200,7 +200,7 @@ public class ChatServiceTest {
         ModerationService moderationService = mock(ModerationService.class);
         Consultation consultation = mock(Consultation.class);
 
-        when(consultationRepository.findById(1L)).thenReturn(Optional.of(consultation));
+        when(consultationRepository.findWithLockByConsultationId(1L)).thenReturn(Optional.of(consultation));
         when(consultation.getStatus()).thenReturn(ConsultationStatus.AI_CHAT);
         when(messageRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -242,7 +242,7 @@ public class ChatServiceTest {
         ModerationService moderationService = mock(ModerationService.class);
         Consultation consultation = mock(Consultation.class);
 
-        when(consultationRepository.findById(1L)).thenReturn(Optional.of(consultation));
+        when(consultationRepository.findWithLockByConsultationId(1L)).thenReturn(Optional.of(consultation));
         when(consultation.getStatus()).thenReturn(ConsultationStatus.IN_PROGRESS);
         when(messageRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -346,7 +346,7 @@ public class ChatServiceTest {
         ModerationService moderationService = mock(ModerationService.class);
         Consultation consultation = mock(Consultation.class);
 
-        when(consultationRepository.findById(1L)).thenReturn(Optional.of(consultation));
+        when(consultationRepository.findWithLockByConsultationId(1L)).thenReturn(Optional.of(consultation));
         when(consultation.getStatus()).thenReturn(ConsultationStatus.IN_PROGRESS);
         when(messageRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(moderationService.processMessage("요금 문의드립니다"))
@@ -388,7 +388,7 @@ public class ChatServiceTest {
         Consultation consultation = mock(Consultation.class);
         AbuseLog abuseLog = mock(AbuseLog.class);
 
-        when(consultationRepository.findById(1L)).thenReturn(Optional.of(consultation));
+        when(consultationRepository.findWithLockByConsultationId(1L)).thenReturn(Optional.of(consultation));
         when(consultation.getStatus()).thenReturn(ConsultationStatus.IN_PROGRESS);
         when(messageRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(moderationService.processMessage("병신같네"))
