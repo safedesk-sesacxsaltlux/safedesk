@@ -57,17 +57,21 @@ public class ChatService {
         List<Consultation> consultations = consultationRepository.findByStatusOrderByQueuedAtAsc(ConsultationStatus.QUEUED);
         List<ChatQueueResponseDTO> queueList = new ArrayList<>();
 
-        Map<Long, String> loginIds = memberRepository
+        Map<Long, Member> customers = memberRepository
             .findAllById(consultations.stream().map(Consultation::getCustomerId).distinct().toList())
             .stream()
-            .collect(Collectors.toMap(Member::getMemberId, Member::getLoginId));
+            .collect(Collectors.toMap(Member::getMemberId, member -> member));
 
         for (Consultation consultation : consultations) {
             ChatQueueResponseDTO chatQueueResponseDTO = new ChatQueueResponseDTO();
 
             chatQueueResponseDTO.setConsultationId(consultation.getConsultationId());
             chatQueueResponseDTO.setCustomerId(String.valueOf(consultation.getCustomerId()));
-            chatQueueResponseDTO.setCustomerLoginId(loginIds.get(consultation.getCustomerId()));
+            Member customer = customers.get(consultation.getCustomerId());
+            if (customer != null) {
+                chatQueueResponseDTO.setCustomerLoginId(customer.getLoginId());
+                chatQueueResponseDTO.setCustomerName(customer.getName());
+            }
             chatQueueResponseDTO.setConsultationStatus(consultation.getStatus());
             chatQueueResponseDTO.setQueuedAt(consultation.getQueuedAt());
             chatQueueResponseDTO.setInquiryCategory(consultation.getInquiryCategory());
