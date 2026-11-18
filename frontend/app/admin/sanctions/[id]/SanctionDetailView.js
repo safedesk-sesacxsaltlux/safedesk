@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useApiGet } from "../../../_lib/useApiGet";
 import { formatDate, formatDateTime } from "../../../_lib/format";
 import ReleaseModal from "./ReleaseModal";
+import OriginalModal from "./OriginalModal";
 
 const STATUS_BADGE = {
   SUSPENDED: { label: "정지 중", tone: "badge-danger" },
@@ -42,6 +43,7 @@ export default function SanctionDetailView({ id }) {
 function SanctionDetail({ id, notice, onReleased }) {
   const result = useApiGet(`/api/admin/sanctions/${id}`);
   const [modalOpen, setModalOpen] = useState(false);
+  const [originalOf, setOriginalOf] = useState(null);
 
   if (result.status === "loading") {
     return <span className="small muted">제재 정보를 불러오는 중입니다.</span>;
@@ -109,6 +111,10 @@ function SanctionDetail({ id, notice, onReleased }) {
                   폭언 메시지 {v.abusiveMessageCount}건
                   {v.appliedDurationDays && ` · ${v.appliedDurationDays}일 정지 적용`}
                 </span>
+                <button type="button" className="btn btn-sm" style={{ alignSelf: "flex-start" }}
+                  onClick={() => setOriginalOf(v)}>
+                  원문 보기
+                </button>
               </div>
             ))}
           </div>
@@ -117,6 +123,11 @@ function SanctionDetail({ id, notice, onReleased }) {
 
       {modalOpen && (
         <ReleaseModal sanction={s} onClose={() => setModalOpen(false)} onReleased={onReleased} />
+      )}
+
+      {originalOf && (
+        <OriginalModal violationId={originalOf.violationId} sequence={originalOf.sequence}
+          onClose={() => setOriginalOf(null)} />
       )}
     </>
   );
