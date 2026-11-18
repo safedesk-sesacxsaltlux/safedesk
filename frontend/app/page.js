@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import Icon from "./_components/Icon";
 import { PublicHeader } from "./_components/Headers";
@@ -53,7 +54,16 @@ export default function Home() {
             이용 제한이 적용됩니다.
           </p>
         </div>
-        <div className="placeholder">[서비스 일러스트 / 채팅 미리보기 이미지]</div>
+        <div className="hero-image">
+          <Image
+            src="/hero.png"
+            alt="AI 상담에서 상담원 연결, 폭언 감지 시 상담원 보호까지 이어지는 SafeDesk 상담 흐름"
+            width={1536}
+            height={1024}
+            sizes="(max-width: 960px) 100vw, 560px"
+            preload
+          />
+        </div>
       </section>
 
       <section className="container features">
