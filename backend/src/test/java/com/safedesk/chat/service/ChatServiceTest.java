@@ -635,7 +635,7 @@ public class ChatServiceTest {
         when(consultation.getAgentId()).thenReturn(10L);
         when(consultation.getStatus()).thenReturn(ConsultationStatus.IN_PROGRESS);
         when(consultation.getAcceptedAt()).thenReturn(acceptedAt);
-        when(memberRepository.findById(10L)).thenReturn(Optional.of(agent));
+        when(memberRepository.findWithLockByMemberId(10L)).thenReturn(Optional.of(agent));
         when(agent.getName()).thenReturn("김상담");
 
         ChatService chatService = new ChatService(
@@ -643,6 +643,11 @@ public class ChatServiceTest {
             mock(ApplicationEventPublisher.class), mock(ModerationService.class), memberRepository);
 
         chatService.acceptConsultation(1L, 10L);
+
+        // 상담원 행 → 상담 행 순서로 잠근다 (동시 수락 테스트)
+        var inOrder = inOrder(memberRepository, consultationRepository);
+        inOrder.verify(memberRepository).findWithLockByMemberId(10L);
+        inOrder.verify(consultationRepository).findWithLockByConsultationId(1L);
 
         ArgumentCaptor<ConsultationAcceptedMessage> captor = ArgumentCaptor.forClass(ConsultationAcceptedMessage.class);
         verify(messagingTemplate).convertAndSend(eq("/topic/chats/1"), captor.capture());
@@ -657,7 +662,10 @@ public class ChatServiceTest {
     void acceptConflictPublishesNothing() {
         ConsultationRepository consultationRepository = mock(ConsultationRepository.class);
         SimpMessagingTemplate messagingTemplate = mock(SimpMessagingTemplate.class);
+        MemberRepository memberRepository = mock(MemberRepository.class);
         Consultation consultation = mock(Consultation.class);
+
+        when(memberRepository.findWithLockByMemberId(10L)).thenReturn(Optional.of(mock(Member.class)));
 
         when(consultationRepository.findWithLockByConsultationId(1L)).thenReturn(Optional.of(consultation));
         when(consultationRepository.findFirstByAgentIdAndStatusOrderByClosedAtDesc(10L, ConsultationStatus.TERMINATED))
@@ -666,7 +674,7 @@ public class ChatServiceTest {
 
         ChatService chatService = new ChatService(
             mock(MessageRepository.class), messagingTemplate, consultationRepository,
-            mock(ApplicationEventPublisher.class), mock(ModerationService.class), mock(MemberRepository.class));
+            mock(ApplicationEventPublisher.class), mock(ModerationService.class), memberRepository);
 
         assertThatThrownBy(() -> chatService.acceptConsultation(1L, 10L))
             .isInstanceOf(BusinessException.class)
