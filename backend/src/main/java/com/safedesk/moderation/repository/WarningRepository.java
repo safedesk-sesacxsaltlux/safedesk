@@ -3,6 +3,8 @@ package com.safedesk.moderation.repository;
 import com.safedesk.moderation.entity.Warning;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
+
 /**
  * warning 저장소.
  *
@@ -22,4 +24,12 @@ public interface WarningRepository extends JpaRepository<Warning, Long> {
      * SELECT COUNT(*) FROM warning WHERE consultation_id = ?
      */
     long countByConsultationId(Long consultationId);
+
+    /**
+     * 이 상담의 경고 목록 (MOD-05 경고 내역 조회). AUTO + MANUAL 모두, 먼저 받은 경고부터.
+     * 같은 초에 경고가 두 건이면 created_at 이 같으므로 warning_id 로 한 번 더 정렬해 순서를 고정한다.
+     * SELECT * FROM warning WHERE consultation_id = ? ORDER BY created_at ASC, warning_id ASC
+     */
+    List<Warning> findByConsultationIdOrderByCreatedAtAscWarningIdAsc(Long consultationId);
+
 }
