@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import Icon from "../../_components/Icon";
 import CancelWaitButton from "./CancelWaitButton";
+import WaitForAgent from "./WaitForAgent";
 
 export const metadata = { title: "상담원 연결 대기 · SafeDesk" };
 
@@ -45,10 +46,8 @@ export default function WaitingPage() {
             {/* 주소의 chatId 를 읽는 버튼만 브라우저에서 그린다 (useSearchParams) */}
             <Suspense fallback={null}>
               <CancelWaitButton />
+              <WaitForAgent />
             </Suspense>
-            <Link href="/customer/live" className="btn btn-primary" style={{ fontWeight: 500 }}>
-              (시연) 상담원 수락됨 → 채팅
-            </Link>
           </div>
         </div>
 

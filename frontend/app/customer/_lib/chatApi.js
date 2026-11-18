@@ -55,9 +55,27 @@ export function cancelChat(chatId) {
   return request(`/api/chats/${chatId}/cancel`, { method: "PATCH" });
 }
 
+// API-003 상담 상세 (상태 확인용)
+export function getChat(chatId) {
+  return request(`/api/chats/${chatId}`);
+}
+
+// API-004 상담 메시지 내역
+export function getMessages(chatId) {
+  return request(`/api/chats/${chatId}/messages`);
+}
+
+// API-006 상담 종료 (진행 중 상담)
+export function closeChat(chatId) {
+  return request(`/api/chats/${chatId}/close`, { method: "PATCH" });
+}
+
+// HIS-02 내 이용 상태 (정지 일수·해제 일시)
+export function getMySanction() {
+  return request("/api/customers/me/sanction");
+}
+
 // 상담 상태별 고객 화면 (contract.md 화면 라우트)
-// 종료된 상담(CLOSED·TERMINATED)은 결과 화면(/customer/ended)이 아직 예시라 고객 메인으로 보낸다.
-// TODO(#83): 종료 결과 화면을 연동하면 `/customer/ended?chatId=${chatId}` 로 되돌린다.
 export function chatPath(status, chatId) {
   switch (status) {
     case "AI_CHAT":
@@ -67,6 +85,6 @@ export function chatPath(status, chatId) {
     case "IN_PROGRESS":
       return `/customer/live?chatId=${chatId}`;
     default:
-      return "/customer";
+      return `/customer/ended?chatId=${chatId}`;
   }
 }
