@@ -51,4 +51,19 @@ public interface CustomerConsultationRepository extends JpaRepository<Consultati
     // CUS-01: 아직 끝나지 않은 상담 (AI_CHAT, QUEUED, IN_PROGRESS)
     Optional<Consultation> findFirstByCustomerIdAndStatusIn(long customerId, Collection<String> statuses);
 
+    // CUS-02: 봇 답변 저장 직전에 상담 행을 잠그고 DB 의 지금 상태를 읽는다.
+    // 엔티티로 읽으면 안 된다. open-in-view 때문에 요청 앞부분에서 읽은 Consultation 이 영속성 컨텍스트에 남아 있어서,
+    // 잠금 조회를 해도 DB 의 최신 상태 대신 그 객체(예전 상태)를 돌려준다. 값만 읽으면 항상 DB 기준이다.
+    @Query(value = "SELECT status FROM consultation WHERE consultation_id = :id FOR UPDATE", nativeQuery = true)
+    Optional<String> lockStatus(@Param("id") long id);
+
+    // CUS-02: 처음 매칭된 FAQ 만 기록한다 (이미 있으면 그대로).
+    // 엔티티를 고치면 Consultation 의 모든 컬럼이 UPDATE 되어 다른 요청이 바꾼 상태를 덮어쓸 수 있어서, 이 두 컬럼만 바꾼다.
+    @Modifying
+    @Query("UPDATE Consultation c SET c.faqId = :faqId, c.inquiryCategory = :category " +
+        "WHERE c.consultationId = :id AND c.faqId IS NULL")
+    int recordFirstFaqMatch(@Param("id") long id,
+                            @Param("faqId") long faqId,
+                            @Param("category") String category);
+
 }
