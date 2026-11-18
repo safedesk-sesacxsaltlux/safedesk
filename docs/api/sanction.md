@@ -45,7 +45,7 @@
 
 | 이름 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
-| keyword | String | N | 고객 아이디 부분 일치 검색 |
+| keyword | String | N | 고객 아이디 또는 이름 부분 일치 검색 |
 | status | String | N | SUSPENDED, RELEASED, EXPIRED (없으면 전체) |
 | durationDays | Integer | N | 제재 기간 필터 (예: 7, 30, 90) |
 | page | Integer | N | 기본 0 |
@@ -62,7 +62,6 @@
       {
         "sanctionId": 31,
         "customer": { "memberId": 1, "loginId": "user01", "name": "홍길동" },
-        "reason": "상담 중 폭언",
         "violationCount": 2,
         "lastViolatedAt": "2026-11-09T15:12:00",
         "durationDays": 30,
@@ -96,6 +95,13 @@
 | 비로그인 | 401 Unauthorized | 로그인이 필요합니다. |
 | ADMIN 아님 | 403 Forbidden | 접근 권한이 없습니다. |
 
+### 참고
+
+- 제재 사유(`reason`, 예: "상담 중 폭언")는 응답에서 뺐다. `sanction` 테이블에 저장된 곳이 없고, 제재 관리 화면(목록·상세)에서도 보여 주는 곳이 없다. 이 서비스의 제재는 모두 폭언 때문에 생겨서 사유를 따로 구분할 필요가 없다.
+- 해제 사유(`release.reason`, API-ADM-06)는 `sanction.release_reason`에 저장되는 다른 값이라 그대로 둔다.
+- `violationCount`(누적 위반)는 `violation` 행 수로 계산한다. 그 고객의 위반 중 이 제재를 만든 위반까지 센 수이고, 정지 일수(1회 7일, 2회 30일, 3회 이상 90일)와 짝이 맞는다. HIS-07 대시보드 최근 제재와 같은 기준이다.
+- `keyword`는 제재 관리 화면 검색칸 안내("고객 ID 또는 이름")에 맞춰 고객 이름도 함께 찾는다.
+
 ---
 
 ## API-ADM-05 제재 상세 조회
@@ -112,7 +118,7 @@
 | 호출 시점 | 제재 목록에서 상세 보기 클릭 시, 해제 성공 후 |
 | 인증 필요 | 예 (ADMIN) |
 | 관련 요구사항 | REQ-025, REQ-026 |
-| 설명 | 고객 정보, 제재 상태·사유·기간, 그 고객의 누적 위반 내역과 관련 상담 번호를 준다. 폭언 원문은 담지 않고, 위반별로 API-ADM-07을 호출해 본다. |
+| 설명 | 고객 정보, 제재 상태·기간, 그 고객의 누적 위반 내역과 관련 상담 번호를 준다. 폭언 원문은 담지 않고, 위반별로 API-ADM-07을 호출해 본다. |
 
 ### Request Header
 
@@ -140,7 +146,6 @@
       "name": "홍길동",
       "joinedAt": "2026-10-01T10:00:00"
     },
-    "reason": "상담 중 폭언",
     "violationCount": 2,
     "durationDays": 30,
     "startsAt": "2026-11-09T15:12:00",
@@ -195,6 +200,10 @@
 | 없는 제재 | 404 Not Found | 제재 정보를 찾을 수 없습니다. |
 | 비로그인 | 401 Unauthorized | 로그인이 필요합니다. |
 | ADMIN 아님 | 403 Forbidden | 접근 권한이 없습니다. |
+
+### 참고
+
+- 제재 사유(`reason`)는 API-ADM-04와 같은 이유로 응답에서 뺐다. 위반이 자동 종료인지 상담원 종료인지는 `violations[].closedBy`로 확인한다.
 
 ---
 
