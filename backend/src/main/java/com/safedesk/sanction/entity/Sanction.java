@@ -75,6 +75,16 @@ public class Sanction {
         return new Sanction(violationId, customerId, suspendDays, startAt);
     }
 
+    public SanctionStatus statusAt(LocalDateTime now) {
+        return SanctionStatus.of(releasedAt, endAt, now);
+    }
+
+    public void release(Long adminId, String reason, LocalDateTime now) {
+        this.releasedAt = now;
+        this.releasedBy = adminId;
+        this.releaseReason = reason;
+    }
+
 
     public Long getSanctionId() {
         return sanctionId;

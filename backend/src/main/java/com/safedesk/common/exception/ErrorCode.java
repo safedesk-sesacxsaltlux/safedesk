@@ -26,6 +26,10 @@ public enum ErrorCode {
     CUSTOMER_SANCTIONED(HttpStatus.FORBIDDEN, "상담 중 폭언으로 이용이 정지되었습니다."),
     INVALID_POLICY_VALUE(HttpStatus.BAD_REQUEST,
         "경고 발송 기준과 자동 종료 기준은 1~5회, 정지 기간은 1~365일로 입력해주세요."),
+    SANCTION_NOT_FOUND(HttpStatus.NOT_FOUND, "제재 정보를 찾을 수 없습니다."),
+    SANCTION_NOT_RELEASABLE(HttpStatus.CONFLICT, "이미 해제되었거나 기간이 끝난 제재입니다."),
+    RELEASE_REASON_REQUIRED(HttpStatus.BAD_REQUEST, "해제 사유를 입력해주세요."),
+    VIOLATION_NOT_FOUND(HttpStatus.NOT_FOUND, "위반 정보를 찾을 수 없습니다."),
 
     // 상담
     CHAT_NOT_FOUND(HttpStatus.NOT_FOUND, "상담을 찾을 수 없습니다."),
