@@ -6,6 +6,7 @@ import com.safedesk.chat.service.ChatService;
 import com.safedesk.common.exception.BusinessException;
 import com.safedesk.common.exception.ErrorCode;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.messaging.converter.MessageConversionException;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageExceptionHandler;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -42,6 +43,14 @@ public class ChatMessageController {
     public ChatErrorMessage handleBusiness(BusinessException e) {
         log.warn("WebSocket 비즈니스 예외: code={}, message={}", e.getErrorCode().name(), e.getMessage());
         return ChatErrorMessage.of(e.getErrorCode(), e.getMessage());
+    }
+
+    // 본문이 JSON 이 아니거나 형식이 맞지 않으면(예: {"content": 아님) 변환에 실패한다. 아무 안내 없이 버려지지 않게 INVALID_INPUT 으로 알린다
+    @MessageExceptionHandler(MessageConversionException.class)
+    @SendToUser(destinations = "/queue/errors", broadcast = false)
+    public ChatErrorMessage handleInvalidPayload(MessageConversionException e) {
+        log.warn("WebSocket 메시지 본문 변환 실패: {}", e.getMessage());
+        return ChatErrorMessage.of(ErrorCode.INVALID_INPUT, ErrorCode.INVALID_INPUT.getMessage());
     }
 
     private Long memberIdOf(Principal principal) {
