@@ -25,6 +25,17 @@ public class MockAiGatewayTest {
     }
 
     @Test
+    @DisplayName("NORMAL 모드에서 FAQ 답변이 함께 오면 그 답변을 돌려준다")
+    void normalModeReturnsFaqAnswerWhenGiven() {
+        MockAiGateway gateway = new MockAiGateway(2000, AiMockMode.NORMAL);
+
+        AiResult result = gateway.reply(new AiReplyRequest(1L, "수도요금 어떻게 내요?", "청구서, 자동납부로 낼 수 있습니다."));
+
+        assertThat(result.success()).isTrue();
+        assertThat(result.content()).isEqualTo("청구서, 자동납부로 낼 수 있습니다.");
+    }
+
+    @Test
     @DisplayName("ERROR 모드는 ERROR를 돌려준다")
     void errorModeReturnsError() {
         MockAiGateway gateway = new MockAiGateway(100, AiMockMode.ERROR);
