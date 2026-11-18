@@ -1,5 +1,6 @@
 package com.safedesk.common.config;
 
+import com.safedesk.auth.jwt.JwtAccessDeniedHandler;
 import com.safedesk.auth.jwt.JwtAuthenticationEntryPoint;
 import com.safedesk.auth.jwt.JwtAuthenticationFilter;
 import com.safedesk.auth.jwt.JwtProvider;
@@ -27,12 +28,15 @@ public class SecurityConfig {
     private final JwtProvider jwtProvider;
     private final TokenBlacklist tokenBlacklist;
     private final JwtAuthenticationEntryPoint authenticationEntryPoint;
+    private final JwtAccessDeniedHandler accessDeniedHandler;
 
     public SecurityConfig(JwtProvider jwtProvider, TokenBlacklist tokenBlacklist,
-                          JwtAuthenticationEntryPoint authenticationEntryPoint) {
+                          JwtAuthenticationEntryPoint authenticationEntryPoint,
+                          JwtAccessDeniedHandler accessDeniedHandler) {
         this.jwtProvider = jwtProvider;
         this.tokenBlacklist = tokenBlacklist;
         this.authenticationEntryPoint = authenticationEntryPoint;
+        this.accessDeniedHandler = accessDeniedHandler;
     }
 
     @Bean
@@ -44,7 +48,9 @@ public class SecurityConfig {
                 .httpBasic(basic -> basic.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(new JwtAuthenticationFilter(jwtProvider, tokenBlacklist), UsernamePasswordAuthenticationFilter.class)
-                .exceptionHandling(exception -> exception.authenticationEntryPoint(authenticationEntryPoint))
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(authenticationEntryPoint)
+                        .accessDeniedHandler(accessDeniedHandler))
                 // 위에서부터 처음 맞는 규칙이 적용되므로, 인증이 필요한 /api/auth 경로를 /api/auth/** 보다 먼저 둔다.
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/me", "/api/auth/logout").authenticated()
@@ -54,8 +60,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/consultations").authenticated()
                         .requestMatchers("/api/agents/me/consultations").authenticated()
                         .requestMatchers("/api/agents/me/customers").authenticated()
-                        // HIS-07 운영 대시보드: 로그인만 확인 (401). 관리자인지는 컨트롤러에서 확인(403)
-                        .requestMatchers("/api/admin/dashboard").authenticated()
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
                         // TODO(인증): API별 서버 권한 검사. docs/api 명세의 "인증" 열 기준으로 작성함.
                         //  주석 해제 전 확인할 것

@@ -1,6 +1,8 @@
 package com.safedesk.sanction.repository;
 
 import com.safedesk.sanction.entity.SanctionPolicy;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
@@ -40,4 +42,8 @@ public interface SanctionPolicyRepository extends JpaRepository<SanctionPolicy, 
             .or(this::findFirstByOrderByPolicyIdDesc)
             .orElseThrow(() -> new IllegalStateException("제재 정책이 없습니다."));
     }
+
+    Page<SanctionPolicy> findAllByOrderByPolicyIdDesc(Pageable pageable);
+
+    Optional<SanctionPolicy> findFirstByPolicyIdLessThanOrderByPolicyIdDesc(Long policyId);
 }

@@ -42,6 +42,10 @@ public class MockAiGateway implements AiGateway {
         return switch (mode) {
             case NORMAL -> {
                 sleep(ThreadLocalRandom.current().nextLong(500, 1001));   // 진짜 AI처럼 0.5~1초 뒤 답변
+                // 시연에서 질문을 되풀이하는 문장 대신 실제 안내가 보이도록, 맞는 FAQ 가 있으면 그 답변을 쓴다
+                if (request.faqAnswer() != null) {
+                    yield request.faqAnswer();
+                }
                 yield "[목업] " + request.content() + "에 대한 답변입니다.";
             }
             case DELAY -> {

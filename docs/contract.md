@@ -14,7 +14,7 @@
 | D-02 | URL 접두사 | auth·admin·history·moderation: `/api/...` / chat·customer-chat: `/api/v1/...` | `/api`로 통일 (`v1` 제거) | 정혜영, 심소민 | 확정 |
 | D-03 | 상담 리소스 경로 | chat·customer-chat: `/chats/{chatId}` / history·moderation: `/consultations/{consultationId}` | URL은 `chats/{chatId}`로 통일. HIS-06, MOD-05~07, 목록 API(`/me/consultations`, `/admin/consultations`)를 `chats`로 바꾼다. Java·DB 이름은 `Consultation` 그대로 | 유능한, 한수민 | 제안 |
 | D-04 | 종료 사유·주체 코드 | internal.md: `NORMAL`·`QUEUE_CANCEL`·`ABUSE_AUTO`·`ABUSE_MANUAL` / moderation.md: `ABUSE_THRESHOLD_EXCEEDED`, 자유 문장 / chat.md: `AGENT_CLOSED`(예시) | internal.md 기준 4개 (아래 [종료 처리](#종료-처리)) | 정혜영, 한수민, 유능한 | 제안 |
-| D-05 | 메시지 발신자 | customer-chat.md: `BOT` / chat.md: `AI` | `CUSTOMER`, `AGENT`, `BOT`. AI 메시지의 `sender_id`(ERD상 필수 FK) 처리도 같이 정한다 | 심소민, 정혜영, 유능한 | 제안 |
+| D-05 | 메시지 발신자 | chat.md·customer-chat.md(CUS-02)·HIS-06 코드: `AI` / schema.sql CHECK(`ck_message_sender_type`): `CUSTOMER`, `AGENT`, `AI`, `SYSTEM` | `CUSTOMER`, `AGENT`, `AI`, `SYSTEM` (DB 제약 기준. `BOT`은 DB에 저장되지 않는다). AI·시스템 메시지의 `sender_id`는 NULL (schema.sql에서 NULL 허용) | 심소민, 정혜영, 유능한 | 제안 |
 | D-06 | errorCode 이름 | `UNAUTHORIZED`/`AUTH_REQUIRED`, `FORBIDDEN_ROLE`/`ACCESS_DENIED`, `CHAT_NOT_FOUND`/`CONSULTATION_NOT_FOUND`, `CHAT_CLOSED`/`CHAT_ALREADY_CLOSED`, `INVALID_INPUT`/`INVALID_PARAMETER`이 섞여 있음. auth·policy·sanction·faq·chat 문서는 errorCode가 없음 | 아래 [errorCode](#errorcode) 표로 통일 | 전원 | 제안 |
 | D-07 | 종료 시각 컬럼 | customer-chat.md·코드 컨벤션: `ended_at` / moderation·history: `closed_at` | `closed_at` (`closed_by`, `close_reason`과 이름을 맞춤) | 유능한 (ERD) | 제안 |
 | D-08 | 수동 경고·수동 종료 | policy.md: 수동 경고도 1회로 세고, 폭언 사유 수동 종료는 위반 1회 / moderation.md: 정책 확정 전까지 보류 | policy.md 기준으로 구현 | 한수민 | 제안 |
@@ -123,7 +123,7 @@ D-06 제안 목록이다. 도메인 공통 코드를 먼저 쓰고, 상담 관�
 | --- | --- | --- |
 | ClosedBy | `CUSTOMER`, `AGENT`, `SYSTEM` | consultation.closed_by |
 | CloseReason | `NORMAL`, `QUEUE_CANCEL`, `ABUSE_AUTO`, `ABUSE_MANUAL` (D-04) | consultation.close_reason |
-| SenderType | `CUSTOMER`, `AGENT`, `BOT` (D-05) | message |
+| SenderType | `CUSTOMER`, `AGENT`, `AI`, `SYSTEM` (D-05) | message |
 | AbuseStatus | `NORMAL`, `ABUSIVE` | message.abuse_status |
 | WarningType | `AUTO`, `MANUAL` | warning.warning_type |
 | SummaryResult | `RESOLVED`, `UNRESOLVED`, `TERMINATED` | consultation.result (INT-01) |

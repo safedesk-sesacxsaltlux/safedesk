@@ -156,6 +156,12 @@
 | 비로그인 | 401 Unauthorized | 로그인이 필요합니다. |
 | ADMIN 아님 | 403 Forbidden | 접근 권한이 없습니다. |
 
+### 참고
+
+- 정책 관리 화면의 "관리자 검토 대상 지정" 체크박스(누적 3회 이상)는 삭제한다. `sanction_policy`에 저장할 컬럼이 없어서 Request Body에도 넣지 않는다.
+- 같은 이유로 제재 관리 화면의 "검토 필요" 상태도 쓰지 않는다. 제재 상태는 [sanction.md](sanction.md)의 `SUSPENDED`·`RELEASED`·`EXPIRED` 세 가지만 있다.
+- 나중에 이 기능을 구현하게 되면 스키마를 바꿔서 추가할 수 있다. 예를 들어 검토 대상 기준은 `sanction_policy`에 컬럼을 추가하고, 검토 완료 여부는 `sanction`에 `reviewed_at` 같은 컬럼을 추가한다. 이때 이 명세와 sanction.md도 같이 고친다.
+
 ---
 
 ## API-ADM-03 정책 변경 이력 조회
