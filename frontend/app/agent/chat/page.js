@@ -80,7 +80,12 @@ function AgentChatRoom({ chatId }) {
       setLoadError(detailResult.error);
       return;
     }
-    setDetail(detailResult.data);
+    // 재연결 때 상세가 경고 커밋 전에 읽혔을 수 있다. WARNING_ISSUED 로 이미 올린 경고 수가 줄지 않게 큰 값을 쓴다
+    setDetail((prev) =>
+      prev
+        ? { ...detailResult.data, warningCount: Math.max(prev.warningCount ?? 0, detailResult.data.warningCount ?? 0) }
+        : detailResult.data,
+    );
     setStatus(detailResult.data.consultationStatus);
     if (historyResult.data) setMessages((prev) => mergeMessages(prev, historyResult.data));
     setLoadError("");
