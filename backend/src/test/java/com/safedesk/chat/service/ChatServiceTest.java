@@ -11,6 +11,7 @@ import com.safedesk.chat.entity.ConsultationStatus;
 import com.safedesk.chat.entity.Message;
 import com.safedesk.chat.repository.ConsultationRepository;
 import com.safedesk.chat.repository.MessageRepository;
+import com.safedesk.member.repository.MemberRepository;
 import com.safedesk.common.event.ConsultationClosedEvent;
 import com.safedesk.moderation.dto.AbuseFilterResult;
 import com.safedesk.moderation.dto.ConsultationTerminatedMessage;
@@ -59,7 +60,8 @@ public class ChatServiceTest {
             messagingTemplate,
             consultationRepository,
             eventPublisher,
-            mock(ModerationService.class)
+            mock(ModerationService.class),
+            mock(MemberRepository.class)
         );
 
         // 2. 실행
@@ -91,7 +93,8 @@ public class ChatServiceTest {
             messagingTemplate,
             consultationRepository,
             eventPublisher,
-            mock(ModerationService.class)
+            mock(ModerationService.class),
+            mock(MemberRepository.class)
         );
 
         assertThatThrownBy(() -> chatService.closeConsultation(1L, 20L))
@@ -122,7 +125,8 @@ public class ChatServiceTest {
             messagingTemplate,
             consultationRepository,
             eventPublisher,
-            mock(ModerationService.class)
+            mock(ModerationService.class),
+            mock(MemberRepository.class)
         );
 
         chatService.closeConsultation(1L, 10L);
@@ -166,7 +170,8 @@ public class ChatServiceTest {
             messagingTemplate,
             consultationRepository,
             eventPublisher,
-            moderationService
+            moderationService,
+            mock(MemberRepository.class)
         );
 
         // 2. 실행
@@ -214,7 +219,8 @@ public class ChatServiceTest {
             messagingTemplate,
             consultationRepository,
             eventPublisher,
-            moderationService
+            moderationService,
+            mock(MemberRepository.class)
         );
 
         // 2. 실행
@@ -256,7 +262,8 @@ public class ChatServiceTest {
             messagingTemplate,
             consultationRepository,
             eventPublisher,
-            moderationService
+            moderationService,
+            mock(MemberRepository.class)
         );
 
         // 2. 실행
@@ -362,7 +369,8 @@ public class ChatServiceTest {
             messagingTemplate,
             consultationRepository,
             eventPublisher,
-            moderationService
+            moderationService,
+            mock(MemberRepository.class)
         );
 
         // 2. 실행
@@ -401,7 +409,8 @@ public class ChatServiceTest {
             messagingTemplate,
             consultationRepository,
             mock(ApplicationEventPublisher.class),
-            moderationService
+            moderationService,
+            mock(MemberRepository.class)
         );
     }
 

@@ -16,6 +16,7 @@ import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 import com.safedesk.chat.repository.MessageRepository;
 import com.safedesk.chat.repository.ConsultationRepository;
+import com.safedesk.member.repository.MemberRepository;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import com.safedesk.common.event.ConsultationClosedEvent;
 import org.springframework.context.ApplicationEventPublisher;
@@ -42,6 +43,8 @@ public class ChatService {
     private final ApplicationEventPublisher eventPublisher;
 
     private final ModerationService moderationService;
+
+    private final MemberRepository memberRepository;
 
     public List<ChatQueueResponseDTO> getQueueList() {
 
@@ -73,12 +76,13 @@ public class ChatService {
     public ChatService(
         MessageRepository messageRepository, SimpMessagingTemplate simpMessagingTemplate,
         ConsultationRepository consultationRepository, ApplicationEventPublisher eventPublisher,
-        ModerationService moderationService) {
+        ModerationService moderationService, MemberRepository memberRepository) {
         this.messageRepository = messageRepository;
         this.simpMessagingTemplate = simpMessagingTemplate;
         this.consultationRepository = consultationRepository;
         this.eventPublisher = eventPublisher;
         this.moderationService = moderationService;
+        this.memberRepository = memberRepository;
     }
 
     @Transactional
@@ -156,6 +160,13 @@ public class ChatService {
 
     @Transactional
     public ChatAcceptResponseDTO acceptConsultation(long consultationId, Long agentId) {
+        // 상담원 행을 트랜잭션의 첫 조회로 잠근다. 같은 상담원이 서로 다른 상담 두 건을
+        // 동시에 수락하면 상담 행 잠금만으로는 겹치지 않아 existsByAgentIdAndStatus 검사를
+        // 둘 다 통과할 수 있기 때문이다 (#D6). 상담 행 잠금보다 먼저 둬서 항상 같은 순서로
+        // 잠그게 하면 두 트랜잭션이 서로를 기다리는 교착 상태도 생기지 않는다.
+        memberRepository.findWithLockByMemberId(agentId)
+            .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
+
         Consultation consultation = consultationRepository
             .findWithLockByConsultationId(consultationId)
             .orElseThrow(() -> new BusinessException(ErrorCode.CHAT_NOT_FOUND));
