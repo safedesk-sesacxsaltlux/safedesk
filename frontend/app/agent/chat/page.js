@@ -7,6 +7,7 @@ import Icon from "../../_components/Icon";
 import { AgentHeader } from "../../_components/Headers";
 import { callApi, formatSeconds, formatTime } from "../_lib/api";
 import { openChatSocket } from "../_lib/chatSocket";
+import { useAccountSwitchGuard } from "../_lib/useAccountSwitchGuard";
 
 const QUICK_REPLIES = [
   "안녕하세요, 상담원입니다. 무엇을 도와드릴까요?",
@@ -62,6 +63,7 @@ function AgentChat() {
 
 function AgentChatRoom({ chatId }) {
   const router = useRouter();
+  useAccountSwitchGuard();
   const validChatId = chatId && /^\d+$/.test(chatId) ? chatId : null;
 
   const [detail, setDetail] = useState(null);

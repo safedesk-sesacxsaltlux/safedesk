@@ -6,12 +6,14 @@ import { useRouter } from "next/navigation";
 import Icon from "../_components/Icon";
 import { AgentHeader } from "../_components/Headers";
 import { callApi, formatSeconds } from "./_lib/api";
+import { useAccountSwitchGuard } from "./_lib/useAccountSwitchGuard";
 
 // 대기열은 폴링으로 갱신한다 (contract.md WebSocket 「대기열」, WBS-37)
 const POLL_MS = 3000;
 
 export default function AgentConsolePage() {
   const router = useRouter();
+  useAccountSwitchGuard();
   const [queue, setQueue] = useState(null);
   const [loadError, setLoadError] = useState("");
   const [lastUpdated, setLastUpdated] = useState(null);
