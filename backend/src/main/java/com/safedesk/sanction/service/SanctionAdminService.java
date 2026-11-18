@@ -10,6 +10,7 @@ import com.safedesk.sanction.dto.SanctionCustomerDetailDTO;
 import com.safedesk.sanction.dto.SanctionDetailDTO;
 import com.safedesk.sanction.dto.SanctionListItemDTO;
 import com.safedesk.sanction.dto.SanctionReleaseDTO;
+import com.safedesk.sanction.dto.SanctionReleaseResponseDTO;
 import com.safedesk.sanction.dto.ViolationItemDTO;
 import com.safedesk.sanction.entity.Sanction;
 import com.safedesk.sanction.entity.SanctionStatus;
@@ -31,6 +32,7 @@ public class SanctionAdminService {
 
     private static final int MAX_PAGE_SIZE = 50;
     private static final int MAX_DURATION_DAYS = 365;
+    private static final int MAX_RELEASE_REASON_LENGTH = 255;
 
     private final SanctionRepository sanctionRepository;
     private final ViolationRepository violationRepository;
@@ -96,6 +98,36 @@ public class SanctionAdminService {
             status == SanctionStatus.SUSPENDED,
             toRelease(sanction),
             violations
+        );
+    }
+
+    // API-ADM-06 제재 수동 해제
+    @Transactional
+    public SanctionReleaseResponseDTO release(long sanctionId, Long adminId, String reason) {
+        String trimmed = reason == null ? "" : reason.trim();
+        if (trimmed.isEmpty()) {
+            throw new BusinessException(ErrorCode.RELEASE_REASON_REQUIRED);
+        }
+        if (trimmed.length() > MAX_RELEASE_REASON_LENGTH) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+
+        Sanction sanction = sanctionRepository.findWithLockBySanctionId(sanctionId)
+            .orElseThrow(() -> new BusinessException(ErrorCode.SANCTION_NOT_FOUND));
+        LocalDateTime now = LocalDateTime.now().withNano(0);
+        if (sanction.statusAt(now) != SanctionStatus.SUSPENDED) {
+            throw new BusinessException(ErrorCode.SANCTION_NOT_RELEASABLE);
+        }
+
+        sanction.release(adminId, trimmed, now);
+
+        long violationCount = violationRepository
+            .countByCustomerIdAndViolationIdLessThanEqual(sanction.getCustomerId(), sanction.getViolationId());
+        return new SanctionReleaseResponseDTO(
+            sanction.getSanctionId(),
+            sanction.statusAt(now),
+            violationCount,
+            toRelease(sanction)
         );
     }
 

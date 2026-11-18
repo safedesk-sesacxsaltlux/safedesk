@@ -25,6 +25,9 @@ public interface ViolationRepository extends JpaRepository<Violation, Long> {
      */
     long countByCustomerId(Long customerId);
 
+    // API-ADM-06 이 제재가 몇 번째 위반인지
+    long countByCustomerIdAndViolationIdLessThanEqual(Long customerId, Long violationId);
+
     // API-ADM-05 고객의 위반 전체
     @Query(value = """
             select v.violation_id    as violationId,

@@ -1,9 +1,11 @@
 package com.safedesk.sanction.repository;
 
 import com.safedesk.sanction.entity.Sanction;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -21,6 +23,10 @@ public interface SanctionRepository extends JpaRepository<Sanction, Long> {
     Optional<Sanction> findByViolationId(Long violationId);
 
     // 참고: 「지금 정지 중인지」 조회(CUS-01 상담 시작, HIS-02 마이페이지)는 이 이슈 범위가 아니다
+
+    // API-ADM-06 해제할 제재 잠금 조회
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<Sanction> findWithLockBySanctionId(Long sanctionId);
 
     // API-ADM-04 제재 목록. 조건이 null 이면 그 조건은 걸지 않는다.
     // 상태는 컬럼이 없어서 SanctionStatus.of() 와 같은 규칙을 SQL 로 건다 (페이지 수가 맞도록 DB 에서 거른다)
