@@ -517,32 +517,42 @@ Request Body 없음.
 }
 ```
 
+| 필드 | 설명 |
+| --- | --- |
+| warningCount | 이 상담의 경고 수. AUTO + MANUAL 합계 (정책 4장 「수동 경고도 1회로 셈」) |
+| autoWarningCount | 그중 자동 경고(AUTO) 수 |
+| closeThreshold | 이 상담에 적용된 정책의 자동 종료 기준 |
+| warnings | 경고 목록. 먼저 받은 경고부터(생성 시각순, 같으면 warningId순). 경고가 없으면 `[]` |
+
 ### 처리 순서
 
-1. JWT에서 사용자 ID와 역할을 확인한다.
-2. 상담 존재 여부를 확인한다.
-3. AGENT인 경우 해당 상담 담당자인지 검증한다.
-4. 해당 상담의 경고 이력을 조회한다.
-5. 자동 경고와 수동 경고를 구분해 횟수를 계산한다.
-6. 활성 정책의 종료 기준을 조회한다.
-7. 경고 목록과 누적 횟수를 반환한다.
+1. JWT에서 사용자 ID를 확인한다. 토큰이 없으면 401.
+2. 역할을 확인한다. AGENT·ADMIN이 아니면(고객) 403.
+3. 상담을 조회한다. 없으면 404. 조회만 하므로 행을 잠그지 않는다.
+4. AGENT이면 해당 상담의 담당 상담원인지 확인한다. 아니면 403 (수락 전이라 담당 상담원이 없는 상담도 포함). ADMIN은 확인하지 않는다.
+5. 해당 상담의 경고 목록을 생성 시각순으로 조회한다.
+6. 전체 경고 수와 자동 경고 수를 계산한다.
+7. **상담에 저장된 정책**(`consultation.policy_id`)의 종료 기준을 조회한다. 정책 ID가 없으면 가장 최근 정책을 쓴다.
+8. 경고 목록과 횟수, 종료 기준을 반환한다.
 
 ### 예외 상황
 
 | 상황 | HTTP | errorCode | 처리 |
 | --- | --- | --- | --- |
 | 비로그인 | 401 | UNAUTHORIZED | 로그인 화면으로 이동 |
-| 고객 계정 | 403 | FORBIDDEN_ROLE | 접근 거부 |
-| 담당 상담원 아님 | 403 | NOT_ASSIGNED_AGENT | 조회 차단 |
-| 상담 없음 | 404 | CONSULTATION_NOT_FOUND | 상담 없음 안내 |
+| 고객 계정 | 403 | ACCESS_DENIED | 접근 거부 |
+| 담당 상담원 아님 (수락 전 상담 포함) | 403 | CHAT_ACCESS_DENIED | 조회 차단 |
+| 상담 없음 | 404 | CHAT_NOT_FOUND | 상담 없음 안내 |
+
+에러 코드는 다른 상담 API와 같은 기존 코드를 쓴다 (`ChatHistoryService`의 담당 확인과 동일).
 
 ### DB 연동
 
 | 테이블 | 컬럼 | 작업 |
 | --- | --- | --- |
-| consultation | consultation_id, agent_id | SELECT |
+| consultation | consultation_id, agent_id, policy_id | SELECT |
 | warning | warning_id, consultation_id, warning_type, created_at | SELECT |
-| sanction_policy | close_threshold | SELECT |
+| sanction_policy | policy_id, close_threshold | SELECT |
 
 ### 설계 이유
 
@@ -551,6 +561,8 @@ Request Body 없음.
 - 상담원은 본인이 담당하는 상담의 경고만 조회하도록 한다.
 - 폭언 원문은 반환하지 않는다.
 - 실시간 화면 재접속 시에도 경고 상태를 복원할 수 있도록 한다.
+- 종료 기준은 「지금 활성 정책」이 아니라 상담에 저장된 정책에서 가져온다. MOD-02 자동 경고가 같은 기준으로 판단하므로, 관리자가 진행 중에 정책을 바꿔도 화면의 `1 / 2`와 실제 종료 시점이 어긋나지 않는다.
+- 조회 전용이라 `ModerationService`(메시지 전송 트랜잭션 안에서 실행)와 나눠 `WarningQueryService`에서 읽기 전용 트랜잭션으로 처리한다.
 
 ---
 

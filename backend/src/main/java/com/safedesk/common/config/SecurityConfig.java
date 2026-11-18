@@ -60,6 +60,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/consultations").authenticated()
                         .requestMatchers("/api/agents/me/consultations").authenticated()
                         .requestMatchers("/api/agents/me/customers").authenticated()
+                        // MOD-05 경고 내역 조회: 로그인만 확인 (토큰 없으면 401). 역할은 컨트롤러(403), 담당 상담원인지는 서비스에서 확인(403)
+                        .requestMatchers("/api/consultations/*/warnings").authenticated()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
                         // TODO(인증): API별 서버 권한 검사. docs/api 명세의 "인증" 열 기준으로 작성함.
