@@ -34,10 +34,16 @@ function mergeMessages(prev, incoming) {
   );
 }
 
+// 같은 화면에서 ?chatId 만 바뀌면 React 는 컴포넌트를 다시 쓰므로, 이전 상담의 메시지·경고·상태가 남는다.
+// Cache Components(Activity)로 화면이 살아 있을 때도 마찬가지라 chatId 를 key 로 줘서 상담마다 새로 그린다
+// (#76 ChatRoom 과 같은 방식).
 function AgentChat() {
+  const chatId = useSearchParams().get("chatId");
+  return <AgentChatRoom key={chatId ?? "none"} chatId={chatId} />;
+}
+
+function AgentChatRoom({ chatId }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const chatId = searchParams.get("chatId");
   const validChatId = chatId && /^\d+$/.test(chatId) ? chatId : null;
 
   const [detail, setDetail] = useState(null);
