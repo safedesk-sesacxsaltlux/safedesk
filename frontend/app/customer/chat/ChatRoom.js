@@ -73,8 +73,9 @@ function ChatRoomContent({ chatId }) {
 
     setError(null);
     setInput("");
-    // 서버 응답을 기다리지 않고 고객 말풍선을 먼저 띄운다
-    addMessage({ role: "me", content });
+    // 서버 응답을 기다리지 않고 고객 말풍선을 먼저 띄운다. 실패하면 이 key 로 거둔다
+    const myKey = newKey();
+    setMessages((prev) => [...prev, { key: myKey, role: "me", content }]);
     setWaitingReply(true);
 
     try {
@@ -91,11 +92,13 @@ function ChatRoomContent({ chatId }) {
       } else if (code === "CHAT_NOT_IN_BOT" || code === "CHAT_CLOSED") {
         // AI 응답을 기다리는 중에 상담원 연결·종료가 된 경우. 고객 메시지는 서버에 이미 저장돼 있어서
         // 말풍선은 지우지 않는다 (#71 리뷰). 상태에 맞는 화면으로 보낸다.
+        // TODO(#82): CHAT_NOT_IN_BOT 은 QUEUED·IN_PROGRESS 둘 다라 일단 대기 화면으로 보낸다.
+        //  대기 화면이 들어올 때 GET /api/chats/{chatId} 로 상태를 확인하면 IN_PROGRESS 는 채팅으로 넘어간다.
         addMessage({ role: "note", content: body.message });
         router.replace(code === "CHAT_CLOSED" ? chatPath("CLOSED", chatId) : chatPath("QUEUED", chatId));
       } else if (code === "INVALID_INPUT") {
         // 서버가 저장하지 않았으므로 말풍선을 거두고 입력을 돌려준다
-        setMessages((prev) => prev.slice(0, -1));
+        setMessages((prev) => prev.filter((m) => m.key !== myKey));
         setInput(content);
         setError(body.message);
       } else if (status === 401) {

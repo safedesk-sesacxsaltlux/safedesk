@@ -56,6 +56,8 @@ export function cancelChat(chatId) {
 }
 
 // 상담 상태별 고객 화면 (contract.md 화면 라우트)
+// 종료된 상담(CLOSED·TERMINATED)은 결과 화면(/customer/ended)이 아직 예시라 고객 메인으로 보낸다.
+// TODO(#83): 종료 결과 화면을 연동하면 `/customer/ended?chatId=${chatId}` 로 되돌린다.
 export function chatPath(status, chatId) {
   switch (status) {
     case "AI_CHAT":
@@ -65,6 +67,6 @@ export function chatPath(status, chatId) {
     case "IN_PROGRESS":
       return `/customer/live?chatId=${chatId}`;
     default:
-      return `/customer/ended?chatId=${chatId}`;
+      return "/customer";
   }
 }
