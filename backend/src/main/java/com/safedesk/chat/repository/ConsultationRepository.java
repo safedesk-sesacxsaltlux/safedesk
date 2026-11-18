@@ -24,6 +24,9 @@ public interface ConsultationRepository extends JpaRepository<Consultation, Long
 
     Optional<Consultation> findFirstByAgentIdAndStatusOrderByClosedAtDesc(Long agentId, String status);
 
+    // 상담원이 지금 진행 중인 상담 (API-008, 콘솔에서 진행 중 상담으로 돌아가기)
+    Optional<Consultation> findFirstByAgentIdAndStatusOrderByAcceptedAtDesc(Long agentId, String status);
+
     @Modifying(clearAutomatically = true)
     @Query("UPDATE Consultation c SET c.status = 'IN_PROGRESS', c.agentId = :agentId, c.acceptedAt = :now " +
         "WHERE c.consultationId = :id AND c.status = 'QUEUED'")

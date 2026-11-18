@@ -4,57 +4,29 @@ import com.safedesk.chat.entity.Message;
 
 import java.time.LocalDateTime;
 
-    public class ChatHistoryResponseDTO {
+/**
+ * API-004 메시지 내역·API-007 AI 응대 내역의 한 줄.
+ * content 는 저장된 마스킹본이다. 폭언 원문(abuse_log)은 넣지 않는다 (NFR-005).
+ */
+public record ChatHistoryResponseDTO(
+    long messageId,
+    long consultationId,
+    Long senderId,
+    String senderType,
+    String content,
+    String abuseStatus,
+    LocalDateTime createdAt
+) {
 
-        private long messageId;
-        private long consultationId;
-        private Long senderId;
-        private String senderType;
-        private String content;
-        private String abuseStatus;
-        private LocalDateTime createdAt;
-
-        public static ChatHistoryResponseDTO from(Message message) {
-            ChatHistoryResponseDTO dto = new ChatHistoryResponseDTO();
-
-            dto.messageId = message.getMessageId();
-            dto.consultationId = message.getConsultationId();
-            dto.senderId = message.getSenderId();
-            dto.senderType = message.getSenderType();
-            dto.content = message.getContent();
-            dto.abuseStatus = message.getAbuseStatus();
-            dto.createdAt = message.getCreatedAt();
-
-            return dto;
-        }
-
-        public long getMessageId() {
-            return messageId;
-        }
-
-        public long getConsultationId() {
-            return consultationId;
-        }
-
-        public Long getSenderId() {
-            return senderId;
-        }
-
-        public String getSenderType() {
-            return senderType;
-        }
-
-        public String getContent() {
-            return content;
-        }
-
-        public String getAbuseStatus() {
-            return abuseStatus;
-        }
-
-        public LocalDateTime getCreatedAt() {
-            return createdAt;
-        }
+    public static ChatHistoryResponseDTO from(Message message) {
+        return new ChatHistoryResponseDTO(
+            message.getMessageId(),
+            message.getConsultationId(),
+            message.getSenderId(),
+            message.getSenderType(),
+            message.getContent(),
+            message.getAbuseStatus(),
+            message.getCreatedAt()
+        );
     }
-
-
+}

@@ -1,6 +1,5 @@
 package com.safedesk.chat.service;
 
-import com.safedesk.chat.dto.ChatMessageRequestDTO;
 import com.safedesk.moderation.dto.ConsultationTerminatedMessage;
 import com.safedesk.moderation.dto.WarningIssuedMessage;
 import org.junit.jupiter.api.AfterEach;
@@ -111,17 +110,13 @@ class ChatServiceConcurrencyTest {
     }
 
     private void send(CountDownLatch start, String content) {
-        ChatMessageRequestDTO request = new ChatMessageRequestDTO();
-        request.setSenderType("CUSTOMER");
-        request.setSenderId(customerId);
-        request.setMessageContent(content);
         try {
             start.await();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException(e);
         }
-        chatService.sendMessage(consultationId, request);
+        chatService.sendMessage(consultationId, customerId, content);   // 발신자는 토큰의 memberId (NFR-004)
     }
 
     private long insert(String sql, Object... args) {
