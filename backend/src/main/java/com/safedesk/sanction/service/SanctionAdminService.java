@@ -1,5 +1,7 @@
 package com.safedesk.sanction.service;
 
+import com.safedesk.chat.entity.Consultation;
+import com.safedesk.chat.repository.ConsultationRepository;
 import com.safedesk.common.exception.BusinessException;
 import com.safedesk.common.exception.ErrorCode;
 import com.safedesk.common.response.PageResponse;
@@ -12,11 +14,15 @@ import com.safedesk.sanction.dto.SanctionListItemDTO;
 import com.safedesk.sanction.dto.SanctionReleaseDTO;
 import com.safedesk.sanction.dto.SanctionReleaseResponseDTO;
 import com.safedesk.sanction.dto.ViolationItemDTO;
+import com.safedesk.sanction.dto.ViolationMessageDTO;
+import com.safedesk.sanction.dto.ViolationOriginalDTO;
 import com.safedesk.sanction.entity.Sanction;
 import com.safedesk.sanction.entity.SanctionStatus;
+import com.safedesk.sanction.entity.Violation;
 import com.safedesk.sanction.repository.SanctionRepository;
 import com.safedesk.sanction.repository.ViolationHistoryRow;
 import com.safedesk.sanction.repository.ViolationRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -27,6 +33,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 // 관리자 제재 관리 (API-ADM-04~07). 제재 생성(MOD-04)은 SanctionService 가 맡는다
+@Slf4j
 @Service
 public class SanctionAdminService {
 
@@ -37,13 +44,16 @@ public class SanctionAdminService {
     private final SanctionRepository sanctionRepository;
     private final ViolationRepository violationRepository;
     private final MemberRepository memberRepository;
+    private final ConsultationRepository consultationRepository;
 
     public SanctionAdminService(SanctionRepository sanctionRepository,
                                 ViolationRepository violationRepository,
-                                MemberRepository memberRepository) {
+                                MemberRepository memberRepository,
+                                ConsultationRepository consultationRepository) {
         this.sanctionRepository = sanctionRepository;
         this.violationRepository = violationRepository;
         this.memberRepository = memberRepository;
+        this.consultationRepository = consultationRepository;
     }
 
     // API-ADM-04 제재 목록
@@ -128,6 +138,37 @@ public class SanctionAdminService {
             sanction.statusAt(now),
             violationCount,
             toRelease(sanction)
+        );
+    }
+
+    // API-ADM-07 위반 원문 조회
+    @Transactional(readOnly = true)
+    public ViolationOriginalDTO getOriginal(long violationId, Long adminId) {
+        Violation violation = violationRepository.findById(violationId)
+            .orElseThrow(() -> new BusinessException(ErrorCode.VIOLATION_NOT_FOUND));
+        Consultation consultation = consultationRepository.findById(violation.getConsultationId())
+            .orElseThrow(() -> new IllegalStateException("위반 상담이 없습니다: " + violation.getConsultationId()));
+        String customerLoginId = memberRepository.findById(violation.getCustomerId())
+            .map(Member::getLoginId)
+            .orElse(null);
+
+        List<ViolationMessageDTO> messages = violationRepository
+            .findOriginalMessages(violation.getConsultationId())
+            .stream()
+            .map(ViolationMessageDTO::from)
+            .toList();
+
+        LocalDateTime viewedAt = LocalDateTime.now().withNano(0);
+        log.info("위반 원문 열람: adminId={}, violationId={}, viewedAt={}", adminId, violationId, viewedAt);
+
+        return new ViolationOriginalDTO(
+            violation.getViolationId(),
+            violation.getConsultationId(),
+            customerLoginId,
+            consultation.getClosedBy(),
+            violation.getCreatedAt(),
+            messages,
+            viewedAt
         );
     }
 

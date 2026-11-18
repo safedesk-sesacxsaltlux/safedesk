@@ -29,6 +29,7 @@ public enum ErrorCode {
     SANCTION_NOT_FOUND(HttpStatus.NOT_FOUND, "제재 정보를 찾을 수 없습니다."),
     SANCTION_NOT_RELEASABLE(HttpStatus.CONFLICT, "이미 해제되었거나 기간이 끝난 제재입니다."),
     RELEASE_REASON_REQUIRED(HttpStatus.BAD_REQUEST, "해제 사유를 입력해주세요."),
+    VIOLATION_NOT_FOUND(HttpStatus.NOT_FOUND, "위반 정보를 찾을 수 없습니다."),
 
     // 상담
     CHAT_NOT_FOUND(HttpStatus.NOT_FOUND, "상담을 찾을 수 없습니다."),

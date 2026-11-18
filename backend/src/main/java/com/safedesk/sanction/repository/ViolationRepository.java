@@ -44,4 +44,23 @@ public interface ViolationRepository extends JpaRepository<Violation, Long> {
             order by v.violation_id
             """, nativeQuery = true)
     List<ViolationHistoryRow> findHistoryByCustomerId(@Param("customerId") Long customerId);
+
+    // API-ADM-07 위반 상담의 폭언 메시지 원문
+    @Query(value = """
+            select a.message_id       as messageId,
+                   m.created_at       as sentAt,
+                   case when w.warning_type = 'MANUAL' then 'AGENT' else 'KEYWORD' end as detectedBy,
+                   case when w.warning_id is null then null
+                        else (select count(*) from warning w2
+                               where w2.consultation_id = w.consultation_id
+                                 and w2.warning_id <= w.warning_id) end as warningOrder,
+                   a.original_content as originalContent,
+                   m.content          as maskedContent
+            from abuse_log a
+            join message m on m.message_id = a.message_id
+            left join warning w on w.abuse_log_id = a.abuse_log_id
+            where a.consultation_id = :consultationId
+            order by a.abuse_log_id
+            """, nativeQuery = true)
+    List<ViolationMessageRow> findOriginalMessages(@Param("consultationId") Long consultationId);
 }
