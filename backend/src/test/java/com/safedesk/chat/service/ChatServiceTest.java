@@ -2,8 +2,9 @@
 package com.safedesk.chat.service;
 
 import com.safedesk.chat.dto.ChatCloseResponseDTO;
-import com.safedesk.chat.dto.ChatMessageRequestDTO;
 import com.safedesk.chat.dto.ChatMessageResponseDTO;
+import com.safedesk.chat.dto.ConsultationAcceptedMessage;
+import com.safedesk.chat.dto.ConsultationClosedMessage;
 import com.safedesk.chat.entity.CloseReason;
 import com.safedesk.chat.entity.ClosedBy;
 import com.safedesk.chat.entity.Consultation;
@@ -12,6 +13,8 @@ import com.safedesk.chat.entity.Message;
 import com.safedesk.chat.repository.ConsultationRepository;
 import com.safedesk.chat.repository.MessageRepository;
 import com.safedesk.common.event.ConsultationClosedEvent;
+import com.safedesk.member.entity.Member;
+import com.safedesk.member.repository.MemberRepository;
 import com.safedesk.moderation.dto.AbuseFilterResult;
 import com.safedesk.moderation.dto.ConsultationTerminatedMessage;
 import com.safedesk.moderation.dto.TerminationResult;
@@ -59,7 +62,8 @@ public class ChatServiceTest {
             messagingTemplate,
             consultationRepository,
             eventPublisher,
-            mock(ModerationService.class)
+            mock(ModerationService.class),
+            mock(MemberRepository.class)
         );
 
         // 2. 실행
@@ -91,7 +95,8 @@ public class ChatServiceTest {
             messagingTemplate,
             consultationRepository,
             eventPublisher,
-            mock(ModerationService.class)
+            mock(ModerationService.class),
+            mock(MemberRepository.class)
         );
 
         assertThatThrownBy(() -> chatService.closeConsultation(1L, 20L))
@@ -122,12 +127,15 @@ public class ChatServiceTest {
             messagingTemplate,
             consultationRepository,
             eventPublisher,
-            mock(ModerationService.class)
+            mock(ModerationService.class),
+            mock(MemberRepository.class)
         );
 
         chatService.closeConsultation(1L, 10L);
 
         verify(eventPublisher, never()).publishEvent(any(ConsultationClosedEvent.class));
+        // WebSocket 종료 알림도 다시 보내지 않는다
+        verify(messagingTemplate, never()).convertAndSend(anyString(), any(Object.class));
     }
 
     // ===== 폭언 필터 연결 (MOD-01, 이슈 #25) =====
@@ -145,6 +153,8 @@ public class ChatServiceTest {
         Consultation consultation = mock(Consultation.class);
 
         when(consultationRepository.findWithLockByConsultationId(1L)).thenReturn(Optional.of(consultation));
+        when(consultation.getCustomerId()).thenReturn(100L);
+        when(consultation.getAgentId()).thenReturn(10L);
         when(consultation.getStatus()).thenReturn(ConsultationStatus.IN_PROGRESS);
         when(messageRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(moderationService.processMessage("병신같네"))
@@ -156,21 +166,21 @@ public class ChatServiceTest {
         // 이 테스트는 마스킹·원문 저장만 본다. 경고는 아래 경고 테스트에서 확인
         when(moderationService.applyAutoWarning(1L, 10L)).thenReturn(Optional.empty());
 
-        ChatMessageRequestDTO request = new ChatMessageRequestDTO();
-        request.setSenderType("CUSTOMER");
-        request.setSenderId(100L);
-        request.setMessageContent("병신같네");
+        // CUSTOMER (100) 가 보냄
+        Long senderId = 100L;
+        String content = "병신같네";
 
         ChatService chatService = new ChatService(
             messageRepository,
             messagingTemplate,
             consultationRepository,
             eventPublisher,
-            moderationService
+            moderationService,
+            mock(MemberRepository.class)
         );
 
         // 2. 실행
-        chatService.sendMessage(1L, request);
+        chatService.sendMessage(1L, senderId, content);
 
         // 3. 확인 - DB 에는 마스킹본 저장
         ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
@@ -189,45 +199,32 @@ public class ChatServiceTest {
     }
 
     @Test
-    @DisplayName("AI 상담 중 메시지는 검사하지 않는다")
-    void skipAiChatMessage() {
+    @DisplayName("AI 상담 중에는 실시간 채팅 메시지를 받지 않는다 (AI 상담은 CUS-02 REST)")
+    void rejectAiChatMessage() {
 
         // 1. 준비
         ConsultationRepository consultationRepository = mock(ConsultationRepository.class);
         MessageRepository messageRepository = mock(MessageRepository.class);
         SimpMessagingTemplate messagingTemplate = mock(SimpMessagingTemplate.class);
-        ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
         ModerationService moderationService = mock(ModerationService.class);
         Consultation consultation = mock(Consultation.class);
 
         when(consultationRepository.findWithLockByConsultationId(1L)).thenReturn(Optional.of(consultation));
+        when(consultation.getCustomerId()).thenReturn(100L);
         when(consultation.getStatus()).thenReturn(ConsultationStatus.AI_CHAT);
-        when(messageRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-
-        ChatMessageRequestDTO request = new ChatMessageRequestDTO();
-        request.setSenderType("CUSTOMER");
-        request.setSenderId(100L);
-        request.setMessageContent("병신같네");
 
         ChatService chatService = new ChatService(
-            messageRepository,
-            messagingTemplate,
-            consultationRepository,
-            eventPublisher,
-            moderationService
-        );
+            messageRepository, messagingTemplate, consultationRepository,
+            mock(ApplicationEventPublisher.class), moderationService, mock(MemberRepository.class));
 
-        // 2. 실행
-        chatService.sendMessage(1L, request);
+        // 2·3. 실행·확인
+        assertThatThrownBy(() -> chatService.sendMessage(1L, 100L, "병신같네"))
+            .isInstanceOf(BusinessException.class)
+            .extracting("errorCode").isEqualTo(ErrorCode.CHAT_NOT_ACTIVE);
 
-        // 3. 확인 - 필터를 거치지 않고 원문 그대로, abuseStatus 는 NULL (체크리스트 E11)
         verify(moderationService, never()).processMessage(any());
-        verify(moderationService, never()).saveOriginal(anyLong(), anyLong(), any());
-
-        ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
-        verify(messageRepository).save(messageCaptor.capture());
-        assertThat(messageCaptor.getValue().getContent()).isEqualTo("병신같네");
-        assertThat(messageCaptor.getValue().getAbuseStatus()).isNull();
+        verify(messageRepository, never()).save(any());
+        verify(messagingTemplate, never()).convertAndSend(anyString(), any(Object.class));
     }
 
     @Test
@@ -243,24 +240,26 @@ public class ChatServiceTest {
         Consultation consultation = mock(Consultation.class);
 
         when(consultationRepository.findWithLockByConsultationId(1L)).thenReturn(Optional.of(consultation));
+        when(consultation.getCustomerId()).thenReturn(100L);
+        when(consultation.getAgentId()).thenReturn(10L);
         when(consultation.getStatus()).thenReturn(ConsultationStatus.IN_PROGRESS);
         when(messageRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        ChatMessageRequestDTO request = new ChatMessageRequestDTO();
-        request.setSenderType("AGENT");
-        request.setSenderId(10L);
-        request.setMessageContent("확인 후 안내드리겠습니다.");
+        // AGENT (10) 가 보냄
+        Long senderId = 10L;
+        String content = "확인 후 안내드리겠습니다.";
 
         ChatService chatService = new ChatService(
             messageRepository,
             messagingTemplate,
             consultationRepository,
             eventPublisher,
-            moderationService
+            moderationService,
+            mock(MemberRepository.class)
         );
 
         // 2. 실행
-        chatService.sendMessage(1L, request);
+        chatService.sendMessage(1L, senderId, content);
 
         // 3. 확인
         verify(moderationService, never()).processMessage(any());
@@ -290,7 +289,7 @@ public class ChatServiceTest {
             .thenReturn(Optional.of(new WarningResult(1L, 501L, 1, 2, false)));
 
         // 2. 실행
-        chatService.sendMessage(1L, abusiveRequest());
+        chatService.sendMessage(1L, 100L, "병신같네");
 
         // 3. 확인 - 발행 2번: 마스킹된 메시지 먼저, 경고 다음
         ArgumentCaptor<Object> payloadCaptor = ArgumentCaptor.forClass(Object.class);
@@ -327,7 +326,7 @@ public class ChatServiceTest {
             .thenReturn(Optional.of(new WarningResult(1L, 502L, 2, 2, true)));
 
         // 2. 실행
-        chatService.sendMessage(1L, abusiveRequest());
+        chatService.sendMessage(1L, 100L, "병신같네");
 
         // 3. 확인 - 마스킹된 메시지 1번만 발행, 경고 알림 없음
         verify(messagingTemplate, times(1)).convertAndSend(eq("/topic/chats/1"), any(ChatMessageResponseDTO.class));
@@ -347,26 +346,28 @@ public class ChatServiceTest {
         Consultation consultation = mock(Consultation.class);
 
         when(consultationRepository.findWithLockByConsultationId(1L)).thenReturn(Optional.of(consultation));
+        when(consultation.getCustomerId()).thenReturn(100L);
+        when(consultation.getAgentId()).thenReturn(10L);
         when(consultation.getStatus()).thenReturn(ConsultationStatus.IN_PROGRESS);
         when(messageRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(moderationService.processMessage("요금 문의드립니다"))
             .thenReturn(AbuseFilterResult.normal("요금 문의드립니다"));
 
-        ChatMessageRequestDTO request = new ChatMessageRequestDTO();
-        request.setSenderType("CUSTOMER");
-        request.setSenderId(100L);
-        request.setMessageContent("요금 문의드립니다");
+        // CUSTOMER (100) 가 보냄
+        Long senderId = 100L;
+        String content = "요금 문의드립니다";
 
         ChatService chatService = new ChatService(
             messageRepository,
             messagingTemplate,
             consultationRepository,
             eventPublisher,
-            moderationService
+            moderationService,
+            mock(MemberRepository.class)
         );
 
         // 2. 실행
-        chatService.sendMessage(1L, request);
+        chatService.sendMessage(1L, senderId, content);
 
         // 3. 확인 - 원문 그대로, NORMAL 저장. 원문 저장·경고 없음
         ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
@@ -389,6 +390,8 @@ public class ChatServiceTest {
         AbuseLog abuseLog = mock(AbuseLog.class);
 
         when(consultationRepository.findWithLockByConsultationId(1L)).thenReturn(Optional.of(consultation));
+        when(consultation.getCustomerId()).thenReturn(100L);
+        when(consultation.getAgentId()).thenReturn(10L);
         when(consultation.getStatus()).thenReturn(ConsultationStatus.IN_PROGRESS);
         when(messageRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(moderationService.processMessage("병신같네"))
@@ -401,17 +404,11 @@ public class ChatServiceTest {
             messagingTemplate,
             consultationRepository,
             mock(ApplicationEventPublisher.class),
-            moderationService
+            moderationService,
+            mock(MemberRepository.class)
         );
     }
 
-    private ChatMessageRequestDTO abusiveRequest() {
-        ChatMessageRequestDTO request = new ChatMessageRequestDTO();
-        request.setSenderType("CUSTOMER");
-        request.setSenderId(100L);
-        request.setMessageContent("병신같네");
-        return request;
-    }
 
     // ===== MOD-03 폭언 누적 자동 종료 =====
 
@@ -436,7 +433,7 @@ public class ChatServiceTest {
             closedAt, 7, closedAt.plusDays(7))));
 
         // 2. 실행
-        chatService.sendMessage(1L, abusiveRequest());
+        chatService.sendMessage(1L, 100L, "병신같네");
 
         // 3. 확인 - 발행 2번: 마스킹된 메시지 먼저, 종료 알림 다음. 경고 알림 없음
         ArgumentCaptor<Object> payloadCaptor = ArgumentCaptor.forClass(Object.class);
@@ -476,7 +473,7 @@ public class ChatServiceTest {
         when(moderationService.terminateForAbuse(1L)).thenReturn(Optional.empty());
 
         // 2. 실행
-        chatService.sendMessage(1L, abusiveRequest());
+        chatService.sendMessage(1L, 100L, "병신같네");
 
         // 3. 확인 - 마스킹된 메시지만 발행
         verify(messagingTemplate, times(1)).convertAndSend(eq("/topic/chats/1"), any(ChatMessageResponseDTO.class));
@@ -501,10 +498,234 @@ public class ChatServiceTest {
             .thenReturn(Optional.of(new WarningResult(1L, 501L, 1, 2, false)));
 
         // 2. 실행
-        chatService.sendMessage(1L, abusiveRequest());
+        chatService.sendMessage(1L, 100L, "병신같네");
 
         // 3. 확인
         verify(moderationService, never()).terminateForAbuse(anyLong());
         verify(messagingTemplate, never()).convertAndSend(anyString(), any(ConsultationTerminatedMessage.class));
+    }
+
+    // ===== WebSocket 메시지 인증·상태 확인 (NFR-004, 체크리스트 E7) =====
+
+    @Test
+    @DisplayName("종료된 상담에는 메시지를 저장·발행하지 않고 CHAT_CLOSED 를 던진다 (E7)")
+    void rejectMessageToClosedConsultation() {
+        for (String closedStatus : List.of(ConsultationStatus.CLOSED, ConsultationStatus.TERMINATED)) {
+            ConsultationRepository consultationRepository = mock(ConsultationRepository.class);
+            MessageRepository messageRepository = mock(MessageRepository.class);
+            SimpMessagingTemplate messagingTemplate = mock(SimpMessagingTemplate.class);
+            ModerationService moderationService = mock(ModerationService.class);
+            Consultation consultation = mock(Consultation.class);
+
+            when(consultationRepository.findWithLockByConsultationId(1L)).thenReturn(Optional.of(consultation));
+            when(consultation.getCustomerId()).thenReturn(100L);
+            when(consultation.getAgentId()).thenReturn(10L);
+            when(consultation.getStatus()).thenReturn(closedStatus);
+
+            ChatService chatService = new ChatService(
+                messageRepository, messagingTemplate, consultationRepository,
+                mock(ApplicationEventPublisher.class), moderationService, mock(MemberRepository.class));
+
+            assertThatThrownBy(() -> chatService.sendMessage(1L, 100L, "아직 안 끝났어요"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.CHAT_CLOSED);
+
+            verify(messageRepository, never()).save(any());
+            verify(moderationService, never()).processMessage(any());
+            verify(messagingTemplate, never()).convertAndSend(anyString(), any(Object.class));
+        }
+    }
+
+    @Test
+    @DisplayName("상담의 고객도 수락한 상담원도 아니면 메시지를 보낼 수 없다 (NFR-004)")
+    void rejectMessageFromOutsider() {
+        ConsultationRepository consultationRepository = mock(ConsultationRepository.class);
+        MessageRepository messageRepository = mock(MessageRepository.class);
+        SimpMessagingTemplate messagingTemplate = mock(SimpMessagingTemplate.class);
+        Consultation consultation = mock(Consultation.class);
+
+        when(consultationRepository.findWithLockByConsultationId(1L)).thenReturn(Optional.of(consultation));
+        when(consultation.getCustomerId()).thenReturn(100L);
+        when(consultation.getAgentId()).thenReturn(10L);
+        when(consultation.getStatus()).thenReturn(ConsultationStatus.IN_PROGRESS);
+
+        ChatService chatService = new ChatService(
+            messageRepository, messagingTemplate, consultationRepository,
+            mock(ApplicationEventPublisher.class), mock(ModerationService.class), mock(MemberRepository.class));
+
+        assertThatThrownBy(() -> chatService.sendMessage(1L, 999L, "끼어들기"))
+            .isInstanceOf(BusinessException.class)
+            .extracting("errorCode").isEqualTo(ErrorCode.CHAT_ACCESS_DENIED);
+
+        verify(messageRepository, never()).save(any());
+        verify(messagingTemplate, never()).convertAndSend(anyString(), any(Object.class));
+    }
+
+    @Test
+    @DisplayName("발신자 유형은 토큰의 회원으로 정한다. 고객이 보낸 메시지는 항상 CUSTOMER 로 저장되고 폭언 검사를 받는다")
+    void senderTypeComesFromMember() {
+        ConsultationRepository consultationRepository = mock(ConsultationRepository.class);
+        MessageRepository messageRepository = mock(MessageRepository.class);
+        SimpMessagingTemplate messagingTemplate = mock(SimpMessagingTemplate.class);
+        ModerationService moderationService = mock(ModerationService.class);
+        Consultation consultation = mock(Consultation.class);
+
+        when(consultationRepository.findWithLockByConsultationId(1L)).thenReturn(Optional.of(consultation));
+        when(consultation.getCustomerId()).thenReturn(100L);
+        when(consultation.getAgentId()).thenReturn(10L);
+        when(consultation.getStatus()).thenReturn(ConsultationStatus.IN_PROGRESS);
+        when(messageRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(moderationService.processMessage("안녕하세요")).thenReturn(AbuseFilterResult.normal("안녕하세요"));
+
+        ChatService chatService = new ChatService(
+            messageRepository, messagingTemplate, consultationRepository,
+            mock(ApplicationEventPublisher.class), moderationService, mock(MemberRepository.class));
+
+        chatService.sendMessage(1L, 100L, "안녕하세요");
+
+        ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
+        verify(messageRepository).save(messageCaptor.capture());
+        assertThat(messageCaptor.getValue().getSenderType()).isEqualTo("CUSTOMER");
+        assertThat(messageCaptor.getValue().getSenderId()).isEqualTo(100L);
+        verify(moderationService).processMessage("안녕하세요");
+    }
+
+    @Test
+    @DisplayName("빈 메시지나 500자를 넘는 메시지는 받지 않는다")
+    void rejectInvalidContent() {
+        ConsultationRepository consultationRepository = mock(ConsultationRepository.class);
+        MessageRepository messageRepository = mock(MessageRepository.class);
+        Consultation consultation = mock(Consultation.class);
+
+        when(consultationRepository.findWithLockByConsultationId(1L)).thenReturn(Optional.of(consultation));
+        when(consultation.getCustomerId()).thenReturn(100L);
+        when(consultation.getStatus()).thenReturn(ConsultationStatus.IN_PROGRESS);
+
+        ChatService chatService = new ChatService(
+            messageRepository, mock(SimpMessagingTemplate.class), consultationRepository,
+            mock(ApplicationEventPublisher.class), mock(ModerationService.class), mock(MemberRepository.class));
+
+        for (String content : java.util.Arrays.asList(null, "   ", "가".repeat(501))) {
+            assertThatThrownBy(() -> chatService.sendMessage(1L, 100L, content))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.INVALID_INPUT);
+        }
+        verify(messageRepository, never()).save(any());
+    }
+
+    // ===== 수락·종료 WebSocket 알림 (contract.md WebSocket, 체크리스트 6) =====
+
+    @Test
+    @DisplayName("수락하면 고객 화면 전환용 CONSULTATION_ACCEPTED 를 발행한다")
+    void acceptPublishesAcceptedEvent() {
+        ConsultationRepository consultationRepository = mock(ConsultationRepository.class);
+        SimpMessagingTemplate messagingTemplate = mock(SimpMessagingTemplate.class);
+        MemberRepository memberRepository = mock(MemberRepository.class);
+        Consultation consultation = mock(Consultation.class);
+        Member agent = mock(Member.class);
+        LocalDateTime acceptedAt = LocalDateTime.of(2026, 11, 18, 10, 0);
+
+        when(consultationRepository.findWithLockByConsultationId(1L)).thenReturn(Optional.of(consultation));
+        when(consultationRepository.existsByAgentIdAndStatus(10L, ConsultationStatus.IN_PROGRESS)).thenReturn(false);
+        when(consultationRepository.findFirstByAgentIdAndStatusOrderByClosedAtDesc(10L, ConsultationStatus.TERMINATED))
+            .thenReturn(Optional.empty());
+        when(consultationRepository.accept(eq(1L), eq(10L), any())).thenReturn(1);
+        when(consultationRepository.findById(1L)).thenReturn(Optional.of(consultation));
+        when(consultation.getConsultationId()).thenReturn(1L);
+        when(consultation.getAgentId()).thenReturn(10L);
+        when(consultation.getStatus()).thenReturn(ConsultationStatus.IN_PROGRESS);
+        when(consultation.getAcceptedAt()).thenReturn(acceptedAt);
+        when(memberRepository.findById(10L)).thenReturn(Optional.of(agent));
+        when(agent.getName()).thenReturn("김상담");
+
+        ChatService chatService = new ChatService(
+            mock(MessageRepository.class), messagingTemplate, consultationRepository,
+            mock(ApplicationEventPublisher.class), mock(ModerationService.class), memberRepository);
+
+        chatService.acceptConsultation(1L, 10L);
+
+        ArgumentCaptor<ConsultationAcceptedMessage> captor = ArgumentCaptor.forClass(ConsultationAcceptedMessage.class);
+        verify(messagingTemplate).convertAndSend(eq("/topic/chats/1"), captor.capture());
+        assertThat(captor.getValue().getType()).isEqualTo("CONSULTATION_ACCEPTED");
+        assertThat(captor.getValue().getConsultationId()).isEqualTo(1L);
+        assertThat(captor.getValue().getAgentName()).isEqualTo("김상담");
+        assertThat(captor.getValue().getAcceptedAt()).isEqualTo(acceptedAt);
+    }
+
+    @Test
+    @DisplayName("이미 다른 상담원이 수락했으면 수락 알림을 보내지 않는다")
+    void acceptConflictPublishesNothing() {
+        ConsultationRepository consultationRepository = mock(ConsultationRepository.class);
+        SimpMessagingTemplate messagingTemplate = mock(SimpMessagingTemplate.class);
+        Consultation consultation = mock(Consultation.class);
+
+        when(consultationRepository.findWithLockByConsultationId(1L)).thenReturn(Optional.of(consultation));
+        when(consultationRepository.findFirstByAgentIdAndStatusOrderByClosedAtDesc(10L, ConsultationStatus.TERMINATED))
+            .thenReturn(Optional.empty());
+        when(consultationRepository.accept(eq(1L), eq(10L), any())).thenReturn(0);
+
+        ChatService chatService = new ChatService(
+            mock(MessageRepository.class), messagingTemplate, consultationRepository,
+            mock(ApplicationEventPublisher.class), mock(ModerationService.class), mock(MemberRepository.class));
+
+        assertThatThrownBy(() -> chatService.acceptConsultation(1L, 10L))
+            .isInstanceOf(BusinessException.class)
+            .extracting("errorCode").isEqualTo(ErrorCode.CHAT_ALREADY_ACCEPTED);
+        verify(messagingTemplate, never()).convertAndSend(anyString(), any(Object.class));
+    }
+
+    @Test
+    @DisplayName("정상 종료하면 CONSULTATION_CLOSED 를 발행한다")
+    void closePublishesClosedEvent() {
+        ConsultationRepository consultationRepository = mock(ConsultationRepository.class);
+        SimpMessagingTemplate messagingTemplate = mock(SimpMessagingTemplate.class);
+        Consultation consultation = mock(Consultation.class);
+        LocalDateTime closedAt = LocalDateTime.of(2026, 11, 18, 10, 30);
+
+        when(consultationRepository.findWithLockByConsultationId(1L)).thenReturn(Optional.of(consultation));
+        when(consultation.getConsultationId()).thenReturn(1L);
+        when(consultation.getAgentId()).thenReturn(10L);
+        when(consultation.getStatus()).thenReturn(ConsultationStatus.IN_PROGRESS, ConsultationStatus.CLOSED);
+        when(consultation.close(ClosedBy.AGENT, CloseReason.NORMAL)).thenReturn(true);
+        when(consultation.getClosedBy()).thenReturn(ClosedBy.AGENT);
+        when(consultation.getClosedAt()).thenReturn(closedAt);
+
+        ChatService chatService = new ChatService(
+            mock(MessageRepository.class), messagingTemplate, consultationRepository,
+            mock(ApplicationEventPublisher.class), mock(ModerationService.class), mock(MemberRepository.class));
+
+        chatService.closeConsultation(1L, 10L);
+
+        ArgumentCaptor<ConsultationClosedMessage> captor = ArgumentCaptor.forClass(ConsultationClosedMessage.class);
+        verify(messagingTemplate).convertAndSend(eq("/topic/chats/1"), captor.capture());
+        assertThat(captor.getValue().getType()).isEqualTo("CONSULTATION_CLOSED");
+        assertThat(captor.getValue().getStatus()).isEqualTo("CLOSED");
+        assertThat(captor.getValue().getClosedBy()).isEqualTo("AGENT");
+        assertThat(captor.getValue().getClosedAt()).isEqualTo(closedAt);
+    }
+
+    @Test
+    @DisplayName("상담 중인 고객이 종료하면 종료 주체는 CUSTOMER 다 (contract.md 종료 처리)")
+    void closeByCustomer() {
+        ConsultationRepository consultationRepository = mock(ConsultationRepository.class);
+        SimpMessagingTemplate messagingTemplate = mock(SimpMessagingTemplate.class);
+        ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
+        Consultation consultation = mock(Consultation.class);
+
+        when(consultationRepository.findWithLockByConsultationId(1L)).thenReturn(Optional.of(consultation));
+        when(consultation.getAgentId()).thenReturn(10L);
+        when(consultation.getCustomerId()).thenReturn(100L);
+        when(consultation.getStatus()).thenReturn(ConsultationStatus.IN_PROGRESS, ConsultationStatus.CLOSED);
+        when(consultation.close(ClosedBy.CUSTOMER, CloseReason.NORMAL)).thenReturn(true);
+
+        ChatService chatService = new ChatService(
+            mock(MessageRepository.class), messagingTemplate, consultationRepository,
+            eventPublisher, mock(ModerationService.class), mock(MemberRepository.class));
+
+        chatService.closeConsultation(1L, 100L);
+
+        verify(consultation).close(ClosedBy.CUSTOMER, CloseReason.NORMAL);
+        verify(eventPublisher).publishEvent(any(ConsultationClosedEvent.class));
+        verify(messagingTemplate).convertAndSend(eq("/topic/chats/1"), any(ConsultationClosedMessage.class));
     }
 }

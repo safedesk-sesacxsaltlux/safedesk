@@ -1,41 +1,22 @@
 package com.safedesk.chat.dto;
 
+/**
+ * SEND /app/chats/{chatId}/messages 본문 (contract.md WebSocket 「보내기」).
+ *
+ * { "content": "..." }
+ *
+ * 발신자(senderType·senderId)는 서버가 CONNECT 토큰으로 정한다. abuseStatus 도 서버가 정한다.
+ * 클라이언트가 그런 필드를 보내도 받지 않는다 (NFR-004).
+ */
 public class ChatMessageRequestDTO {
 
-    private String senderType;
-    private Long senderId;
-    private String messageContent;
-    private String abuseStatus;
+    private String content;
 
-    public String getSenderType() {
-        return senderType;
+    public String getContent() {
+        return content;
     }
 
-    public void setSenderType(String senderType) {
-        this.senderType = senderType;
-    }
-
-    public Long getSenderId() {
-        return senderId;
-    }
-
-    public void setSenderId(Long senderId) {
-        this.senderId = senderId;
-    }
-
-    public String getMessageContent() {
-        return messageContent;
-    }
-
-    public void setMessageContent(String messageContent) {
-        this.messageContent = messageContent;
-    }
-
-    public String getAbuseStatus() {
-        return abuseStatus;
-    }
-
-    public void setAbuseStatus(String abuseStatus) {
-        this.abuseStatus = abuseStatus;
+    public void setContent(String content) {
+        this.content = content;
     }
 }
