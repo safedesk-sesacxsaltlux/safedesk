@@ -68,7 +68,7 @@ public class SecurityConfig {
 
                         .requestMatchers("/api/agents/me/**").hasRole("AGENT")
                         .requestMatchers(HttpMethod.GET, "/api/chats/queue").hasRole("AGENT")
-                        .requestMatchers(HttpMethod.PATCH, "/api/chats/*/accept", "/api/chats/*/close").hasRole("AGENT")
+                        .requestMatchers(HttpMethod.PATCH, "/api/chats/*/accept").hasRole("AGENT")
 
                         .anyRequest().authenticated()
                 );
