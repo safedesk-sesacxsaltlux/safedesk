@@ -142,9 +142,9 @@ function MessageItem({ message: m }) {
   return (
     <div className="tl-item" style={style}>
       <b>{m.senderName ?? m.senderType}</b> · {formatTime(m.createdAt)}
-      {abusive && (
+      {abusive && m.warningNo && (
         <span className={`badge ${m.warningNo >= 2 ? "badge-danger" : "badge-warn"}`} style={{ marginLeft: 6 }}>
-          ABUSIVE{m.warningNo ? ` · 경고 ${m.warningNo}` : ""}
+          경고 {m.warningNo}
         </span>
       )}
       <br />

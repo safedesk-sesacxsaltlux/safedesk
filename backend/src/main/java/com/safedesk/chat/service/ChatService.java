@@ -26,6 +26,8 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import com.safedesk.chat.entity.Message;
 import com.safedesk.chat.entity.ConsultationStatus;
@@ -55,11 +57,17 @@ public class ChatService {
         List<Consultation> consultations = consultationRepository.findByStatusOrderByQueuedAtAsc(ConsultationStatus.QUEUED);
         List<ChatQueueResponseDTO> queueList = new ArrayList<>();
 
+        Map<Long, String> loginIds = memberRepository
+            .findAllById(consultations.stream().map(Consultation::getCustomerId).distinct().toList())
+            .stream()
+            .collect(Collectors.toMap(Member::getMemberId, Member::getLoginId));
+
         for (Consultation consultation : consultations) {
             ChatQueueResponseDTO chatQueueResponseDTO = new ChatQueueResponseDTO();
 
             chatQueueResponseDTO.setConsultationId(consultation.getConsultationId());
             chatQueueResponseDTO.setCustomerId(String.valueOf(consultation.getCustomerId()));
+            chatQueueResponseDTO.setCustomerLoginId(loginIds.get(consultation.getCustomerId()));
             chatQueueResponseDTO.setConsultationStatus(consultation.getStatus());
             chatQueueResponseDTO.setQueuedAt(consultation.getQueuedAt());
             chatQueueResponseDTO.setInquiryCategory(consultation.getInquiryCategory());

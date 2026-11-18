@@ -140,13 +140,13 @@ export default function AgentConsolePage() {
           }}
         >
           <div className="stat">
-            <span>대기 중 (QUEUED)</span>
+            <span>대기 중</span>
             <b style={{ color: "var(--primary)" }}>
               {queue ? queue.length : "-"}
             </b>
           </div>
           <div className="stat">
-            <span>내 진행 중 (ACTIVE)</span>
+            <span>진행 중</span>
             <b>{recovery ? (activeChatId !== null ? 1 : 0) : "-"}</b>
           </div>
           <div className="stat">
@@ -187,7 +187,7 @@ export default function AgentConsolePage() {
                       }}
                     >
                       <td>{i + 1}</td>
-                      <td>{q.customerId}</td>
+                      <td>{q.customerLoginId ?? q.customerId}</td>
                       <td>{q.inquirySummary ?? q.inquiryCategory ?? "-"}</td>
                       <td>{formatSeconds(q.waitingTime)}</td>
                       <td style={{ textAlign: "right", padding: "10px 16px" }}>
@@ -223,7 +223,7 @@ export default function AgentConsolePage() {
                 <>
                   <span className="small muted">
                     상담번호 C-{String(selected.consultationId).padStart(6, "0")} · 고객{" "}
-                    {selected.customerId} · 대기 {formatSeconds(selected.waitingTime)}
+                    {selected.customerLoginId ?? selected.customerId} · 대기 {formatSeconds(selected.waitingTime)}
                   </span>
                   <div className="kv" style={{ padding: 0, border: 0 }}>
                     <span>문의 분류</span>

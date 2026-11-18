@@ -39,6 +39,7 @@ function LiveChatContent({ chatId }) {
   const [closing, setClosing] = useState(false);
   const [error, setError] = useState(null);
   const socketRef = useRef(null);
+  const sentRef = useRef([]);
   const endRef = useRef(null);
 
   // 화면이 숨겨질 때 「종료하는 중」 잠금을 푼다 (Cache Components)
@@ -91,10 +92,13 @@ function LiveChatContent({ chatId }) {
 
     function handleEvent(event) {
       switch (event.type) {
-        case "MESSAGE":
+        case "MESSAGE": {
+          const original = event.senderType === "CUSTOMER" ? sentRef.current.shift() : undefined;
+          const message = original ? { ...event, original } : event;
           // 다시 연결할 때 load 와 겹칠 수 있어서 같은 메시지는 한 번만 넣는다
-          setMessages((prev) => (prev.some((m) => m.messageId === event.messageId) ? prev : [...prev, event]));
+          setMessages((prev) => (prev.some((m) => m.messageId === event.messageId) ? prev : [...prev, message]));
           break;
+        }
         case "WARNING_ISSUED":
           setWarning({ count: event.warningCount, message: event.message });
           break;
@@ -109,8 +113,12 @@ function LiveChatContent({ chatId }) {
 
     const socket = openChatSocket(chatId, {
       onEvent: handleEvent,
-      onError: (e) => setError(e.message ?? "메시지를 보내지 못했습니다."),
+      onError: (e) => {
+        sentRef.current.shift();
+        setError(e.message ?? "메시지를 보내지 못했습니다.");
+      },
       onConnected: () => {
+        sentRef.current = [];
         setConnected(true);
         setError(null);
         load().catch(() => setError("상담 정보를 불러오지 못했습니다."));
@@ -140,6 +148,7 @@ function LiveChatContent({ chatId }) {
         setError("연결이 끊어졌습니다. 잠시 후 다시 보내 주세요.");
         return;
       }
+      sentRef.current.push(content);
       setError(null);
       setInput("");
     },
@@ -229,7 +238,7 @@ function LiveChatContent({ chatId }) {
                     style={{ alignSelf: "flex-end", maxWidth: "70%", alignItems: "flex-end" }}
                   >
                     <div className="bubble-me" style={{ maxWidth: "100%", background: "var(--danger)" }}>
-                      {m.content}
+                      {m.original ?? m.content}
                     </div>
                     <span className="small muted" style={{ fontSize: 12 }}>
                       부적절한 표현 감지 · 상담원에게는 가려진 상태로 전달됨
@@ -239,7 +248,7 @@ function LiveChatContent({ chatId }) {
               }
               return (
                 <div key={m.messageId} className="bubble-me">
-                  {m.content}
+                  {m.original ?? m.content}
                 </div>
               );
             }

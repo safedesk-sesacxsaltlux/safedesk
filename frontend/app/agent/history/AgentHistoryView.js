@@ -10,6 +10,7 @@ import { Fragment, useState } from "react";
 import { useApiGet } from "../../_lib/useApiGet";
 import { formatDateTime, formatDuration, statusBadge } from "../../_lib/format";
 import Pager from "../../_components/Pager";
+import Icon from "../../_components/Icon";
 
 const EMPTY_FILTER = { from: "", to: "", status: "ALL", keyword: "" };
 const ERROR_MESSAGE = { INVALID_PERIOD: "조회 기간을 다시 선택해주세요. (최대 366일)" };
@@ -178,7 +179,12 @@ function CustomerConsultations({ customerId, filter }) {
                 <td>{c.inquirySummary ?? "—"}</td>
                 <td>{c.abuseCount}</td>
                 <td><span className={`badge ${badge.tone}`}>{badge.label}</span></td>
-                <td><Link href={`/agent/history/${c.consultationId}`} onClick={(e) => e.stopPropagation()}>상세</Link></td>
+                <td>
+                  <Link href={`/agent/history/${c.consultationId}`} onClick={(e) => e.stopPropagation()}
+                    aria-label="상세 보기" title="상세 보기" style={{ display: "inline-flex" }}>
+                    <Icon name="next" size={18} />
+                  </Link>
+                </td>
               </tr>
             );
           })}
