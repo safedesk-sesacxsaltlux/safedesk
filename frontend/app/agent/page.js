@@ -140,13 +140,13 @@ export default function AgentConsolePage() {
           }}
         >
           <div className="stat">
-            <span>대기 중 (QUEUED)</span>
+            <span>대기 중</span>
             <b style={{ color: "var(--primary)" }}>
               {queue ? queue.length : "-"}
             </b>
           </div>
           <div className="stat">
-            <span>내 진행 중 (ACTIVE)</span>
+            <span>진행 중</span>
             <b>{recovery ? (activeChatId !== null ? 1 : 0) : "-"}</b>
           </div>
           <div className="stat">
