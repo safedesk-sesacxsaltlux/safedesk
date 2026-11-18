@@ -2,13 +2,18 @@ package com.safedesk.chat.config;
 
 import com.safedesk.auth.jwt.JwtProvider;
 import com.safedesk.auth.jwt.TokenBlacklist;
+import com.safedesk.chat.dto.ChatErrorMessage;
 import com.safedesk.chat.entity.Consultation;
 import com.safedesk.chat.repository.ConsultationRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.MessageDeliveryException;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
+import org.springframework.messaging.simp.SimpMessageSendingOperations;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.MessageBuilder;
@@ -19,11 +24,18 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import java.security.Principal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class StompAuthChannelInterceptorTest {
@@ -31,9 +43,12 @@ class StompAuthChannelInterceptorTest {
     private final JwtProvider jwtProvider = new JwtProvider("test-secret-key-must-be-at-least-32-bytes!!", 3600);
     private final TokenBlacklist tokenBlacklist = new TokenBlacklist();
     private final ConsultationRepository consultationRepository = mock(ConsultationRepository.class);
+    private final SimpMessageSendingOperations messagingTemplate = mock(SimpMessageSendingOperations.class);
     private final StompAuthChannelInterceptor interceptor =
-        new StompAuthChannelInterceptor(jwtProvider, tokenBlacklist, consultationRepository);
+        new StompAuthChannelInterceptor(jwtProvider, tokenBlacklist, consultationRepository, providerOf(messagingTemplate));
     private final MessageChannel channel = mock(MessageChannel.class);
+
+    private static final String SESSION_ID = "session-1";
 
     // ===== CONNECT =====
 
@@ -79,10 +94,62 @@ class StompAuthChannelInterceptorTest {
     }
 
     @Test
-    @DisplayName("인증된 연결은 메시지를 보낼 수 있다 (상담 참여자 확인은 ChatService)")
-    void sendWithUser() {
-        Message<byte[]> message = frame(StompCommand.SEND, "/app/chats/1/messages", user(100L));
-        assertThat(interceptor.preSend(message, channel)).isSameAs(message);
+    @DisplayName("상담의 고객과 수락한 상담원은 /app/chats/{id}/messages 로 메시지를 보낼 수 있다")
+    void sendAsParticipant() {
+        givenConsultation(1L, 100L, 10L);
+
+        Message<byte[]> fromCustomer = frame(StompCommand.SEND, "/app/chats/1/messages", user(100L));
+        Message<byte[]> fromAgent = frame(StompCommand.SEND, "/app/chats/1/messages", user(10L));
+
+        assertThat(interceptor.preSend(fromCustomer, channel)).isSameAs(fromCustomer);
+        assertThat(interceptor.preSend(fromAgent, channel)).isSameAs(fromAgent);
+        verify(messagingTemplate, never()).convertAndSendToUser(anyString(), anyString(), any(), anyMap());
+    }
+
+    @Test
+    @DisplayName("다른 사람의 상담으로는 보낼 수 없다 → 버리고 오류 큐로 CHAT_ACCESS_DENIED")
+    void sendToOtherConsultation() {
+        givenConsultation(2L, 200L, 20L);
+
+        Message<byte[]> message = frame(StompCommand.SEND, "/app/chats/2/messages", user(100L));
+
+        assertThat(interceptor.preSend(message, channel)).isNull();
+        assertThat(notifiedErrorCode("100")).isEqualTo("CHAT_ACCESS_DENIED");
+    }
+
+    @Test
+    @DisplayName("없는 상담으로는 보낼 수 없다 → 버리고 오류 큐로 CHAT_NOT_FOUND")
+    void sendToUnknownConsultation() {
+        when(consultationRepository.findById(3L)).thenReturn(Optional.empty());
+
+        assertThat(interceptor.preSend(frame(StompCommand.SEND, "/app/chats/3/messages", user(100L)), channel)).isNull();
+        assertThat(notifiedErrorCode("100")).isEqualTo("CHAT_NOT_FOUND");
+    }
+
+    @Test
+    @DisplayName("브로커 경로(/topic/chats/{id})로 직접 보내 가짜 CONSULTATION_CLOSED 를 뿌릴 수 없다 (상담 참여자여도)")
+    void sendDirectlyToTopic() {
+        givenConsultation(1L, 100L, 10L);
+
+        Message<byte[]> fake = frame(StompCommand.SEND, "/topic/chats/1", user(100L),
+            "{\"type\":\"CONSULTATION_CLOSED\",\"chatId\":1}");
+
+        assertThat(interceptor.preSend(fake, channel)).isNull();
+        assertThat(notifiedErrorCode("100")).isEqualTo("ACCESS_DENIED");
+    }
+
+    @Test
+    @DisplayName("/app/chats/{id}/messages 가 아닌 목적지로는 보낼 수 없다")
+    void sendToDisallowedDestinations() {
+        givenConsultation(1L, 100L, 10L);
+
+        for (String destination : List.of("/topic/chats/2", "/topic/other", "/user/queue/errors", "/user/10/queue/errors",
+            "/queue/errors", "/app/chats/1", "/app/chats/1/messages/x", "/app/chats/abc/messages", "/app/other")) {
+            assertThat(interceptor.preSend(frame(StompCommand.SEND, destination, user(100L)), channel))
+                .as(destination).isNull();
+        }
+        Message<byte[]> noDestination = frame(StompCommand.SEND, null, user(100L));
+        assertThat(interceptor.preSend(noDestination, channel)).isNull();
     }
 
     // ===== SUBSCRIBE =====
@@ -137,6 +204,23 @@ class StompAuthChannelInterceptorTest {
 
     // ===== 준비 =====
 
+    @SuppressWarnings("unchecked")
+    private static ObjectProvider<SimpMessageSendingOperations> providerOf(SimpMessageSendingOperations template) {
+        ObjectProvider<SimpMessageSendingOperations> provider = mock(ObjectProvider.class);
+        when(provider.getIfAvailable()).thenReturn(template);
+        return provider;
+    }
+
+    // 보낸 연결(세션)에만 오류를 보냈는지 확인하고 errorCode 를 돌려준다
+    @SuppressWarnings("unchecked")
+    private String notifiedErrorCode(String user) {
+        ArgumentCaptor<Object> payload = ArgumentCaptor.forClass(Object.class);
+        ArgumentCaptor<Map<String, Object>> headers = ArgumentCaptor.forClass(Map.class);
+        verify(messagingTemplate).convertAndSendToUser(eq(user), eq("/queue/errors"), payload.capture(), headers.capture());
+        assertThat(headers.getValue().get(SimpMessageHeaderAccessor.SESSION_ID_HEADER)).isEqualTo(SESSION_ID);
+        return ((ChatErrorMessage) payload.getValue()).getErrorCode();
+    }
+
     private void givenConsultation(long consultationId, long customerId, Long agentId) {
         Consultation consultation = mock(Consultation.class);
         when(consultation.getCustomerId()).thenReturn(customerId);
@@ -158,12 +242,19 @@ class StompAuthChannelInterceptorTest {
     }
 
     private static Message<byte[]> frame(StompCommand command, String destination, Principal user) {
+        return frame(command, destination, user, "");
+    }
+
+    private static Message<byte[]> frame(StompCommand command, String destination, Principal user, String body) {
         StompHeaderAccessor accessor = StompHeaderAccessor.create(command);
-        accessor.setDestination(destination);
+        if (destination != null) {
+            accessor.setDestination(destination);
+        }
         if (user != null) {
             accessor.setUser(user);
         }
+        accessor.setSessionId(SESSION_ID);
         accessor.setLeaveMutable(true);
-        return MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+        return MessageBuilder.createMessage(body.getBytes(java.nio.charset.StandardCharsets.UTF_8), accessor.getMessageHeaders());
     }
 }
