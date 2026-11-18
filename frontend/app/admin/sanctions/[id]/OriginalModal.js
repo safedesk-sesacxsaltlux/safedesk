@@ -54,7 +54,7 @@ export default function OriginalModal({ violationId, sequence, onClose }) {
                     {` · ${DETECTED_BY_LABEL[m.detectedBy] ?? m.detectedBy}`}
                   </span>
                   <span style={{ whiteSpace: "pre-wrap" }}>{m.originalContent}</span>
-                  <span className="small muted">고객에게 보인 문장: {m.maskedContent}</span>
+                  <span className="small muted">상담사에게 보인 문장: {m.maskedContent}</span>
                 </div>
               ))}
             </div>
