@@ -222,17 +222,17 @@
 | 기능 | 상담 상세 조회 |
 | Method | GET |
 | URL | /api/chats/{chatId} |
-| 사용 화면 | 상담원 콘솔 - 상담 상세 화면 |
-| 호출 시점 | 상담원이 수락한 상담의 상세 화면에 진입할 때 |
-| 인증 필요 | 예 (AGENT) |
-| 관련 요구사항 | 상담 상세 조회 관련 REQ 번호 확인 필요 |
-| 설명 | 상담원이 자신에게 배정된 상담의 상세 정보를 조회한다. 상담 상태, 고객 정보, 상담 요청 내용, 수락 시각 등을 확인한다. 상담 메시지 내역은 API-004에서 별도로 조회한다. |
+| 사용 화면 | 상담원 실시간 상담 화면, 고객 채팅 화면(재연결 시 상태 확인) |
+| 호출 시점 | 상담 화면에 들어올 때, WebSocket이 다시 연결될 때 (contract.md WebSocket 「재연결」) |
+| 인증 필요 | 예 (해당 상담의 CUSTOMER 또는 수락한 AGENT) |
+| 관련 요구사항 | REQ-019 (고객 누적 위반 표시), NFR-004 (상담 접근 제한), NFR-008 (재연결 시 상태 확인) |
+| 설명 | 상담의 상태, 고객·상담원 정보, 종료 정보, 고객 누적 위반 수, 이번 상담 경고 수와 자동 종료 기준을 조회한다. 그 상담의 고객이나 수락한 상담원만 조회할 수 있다. 상담 메시지 내역은 API-004에서 별도로 조회한다. |
 
 ### Request Header
 
 | 이름 | 값 | 필수 | 설명 |
 | --- | --- | --- | --- |
-| Authorization | Bearer {accessToken} | Y | 상담원 계정 JWT |
+| Authorization | Bearer {accessToken} | Y | 고객 또는 상담원 계정 JWT |
 | Content-Type | application/json | N | GET 요청으로 별도 Body 없음 |
 
 ### Path Variable
@@ -247,22 +247,30 @@
 
 ### Response Body
 
-아래는 ERD의 `consultation` 테이블을 기준으로 작성한 응답 예시다. 실제 응답 필드 및 공통 응답 형식은 팀 확인이 필요하다.
+구현(`ChatDetailResponseDTO`) 기준이다.
 
 ```json
 {
   "success": true,
-  "message": "상담 상세 조회에 성공했습니다.",
+  "message": "조회되었습니다.",
   "data": {
     "consultationId": 101,
     "customerId": 12,
+    "customerName": "김고객",
     "agentId": 5,
+    "agentName": "이상담",
     "consultationStatus": "IN_PROGRESS",
     "inquiryCategory": "배송",
     "inquirySummary": "배송 지연 문의",
     "createdAt": "2026-11-11T12:55:00",
     "queuedAt": "2026-11-11T13:00:00",
-    "acceptedAt": "2026-11-11T13:10:00"
+    "acceptedAt": "2026-11-11T13:10:00",
+    "closedAt": null,
+    "closedBy": null,
+    "closeReason": null,
+    "customerViolationCount": 1,
+    "warningCount": 0,
+    "closeThreshold": 2
   }
 }
 ```
@@ -274,13 +282,21 @@
 | data | Object | Y | 상담 상세 정보 |
 | consultationId | Long | Y | 상담 고유 번호 |
 | customerId | Long | Y | 고객 회원 번호 |
-| agentId | Long | 조건부 | 배정된 상담원 회원 번호. 미배정 시 NULL |
-| consultationStatus | String | Y | 상담 상태 |
+| customerName | String | N | 고객 이름 (`member.name`) |
+| agentId | Long | 조건부 | 수락한 상담원 회원 번호. 수락 전이면 NULL |
+| agentName | String | N | 수락한 상담원 이름. 수락 전이면 NULL |
+| consultationStatus | String | Y | 상담 상태 (`AI_CHAT`, `QUEUED`, `IN_PROGRESS`, `CLOSED`, `TERMINATED`) |
 | inquiryCategory | String | N | 상담 문의 유형 |
 | inquirySummary | String | N | 상담 문의 요약 |
 | createdAt | LocalDateTime | Y | 상담 생성 시각 |
 | queuedAt | LocalDateTime | N | 상담 대기열 진입 시각 |
 | acceptedAt | LocalDateTime | N | 상담 수락 시각 |
+| closedAt | LocalDateTime | N | 상담 종료 시각. 진행 중이면 NULL |
+| closedBy | String | N | 종료 주체 (`CUSTOMER`, `AGENT`, `SYSTEM`). 진행 중이면 NULL |
+| closeReason | String | N | 종료 사유 (`NORMAL`, `ABUSE_AUTO`, `ABUSE_MANUAL`). 진행 중이면 NULL |
+| customerViolationCount | Long | Y | 고객 누적 위반 수 (REQ-019) |
+| warningCount | Long | Y | 이번 상담의 경고 수 |
+| closeThreshold | Integer | N | 이번 상담에 적용된 정책의 자동 종료 기준 경고 수 |
 
 ### Status Code
 
@@ -288,30 +304,30 @@
 | --- | --- |
 | 200 OK | 상담 상세 조회 성공 |
 | 400 Bad Request | 상담 번호 형식 오류 |
-| 401 Unauthorized | 인증되지 않은 사용자 |
-| 403 Forbidden | 상담원 권한이 없거나 접근할 수 없는 상담 |
-| 404 Not Found | 해당 상담이 존재하지 않음 |
+| 401 Unauthorized | 인증되지 않은 사용자 (`UNAUTHORIZED`) |
+| 403 Forbidden | 해당 상담의 고객·수락한 상담원이 아님 (`CHAT_ACCESS_DENIED`) |
+| 404 Not Found | 해당 상담이 존재하지 않음 (`CHAT_NOT_FOUND`) |
 | 500 Internal Server Error | 서버 내부 오류 |
 
 ### 예외 상황
 
-| 상황 | 응답 코드 | 메시지 |
+| 상황 | 응답 코드 | errorCode |
 | --- | --- | --- |
-| 상담 번호 형식이 올바르지 않음 | 400 Bad Request | 상담 번호를 확인해주세요. |
-| JWT 누락 또는 유효하지 않음 | 401 Unauthorized | 로그인이 필요합니다. |
-| 상담원 권한이 없는 사용자 | 403 Forbidden | 접근 권한이 없습니다. |
-| 다른 상담원에게 배정된 상담에 접근함 | 403 Forbidden | 해당 상담에 접근할 권한이 없습니다. |
-| 상담 번호에 해당하는 상담이 없음 | 404 Not Found | 상담을 찾을 수 없습니다. |
-| 서버 내부 오류 | 500 Internal Server Error | 서버 오류가 발생했습니다. |
+| 상담 번호 형식이 올바르지 않음 | 400 Bad Request | `INVALID_INPUT` |
+| JWT 누락 또는 유효하지 않음 | 401 Unauthorized | `UNAUTHORIZED` |
+| 해당 상담의 고객도, 수락한 상담원도 아님 (다른 상담원·다른 고객) | 403 Forbidden | `CHAT_ACCESS_DENIED` |
+| 상담 번호에 해당하는 상담이 없음 | 404 Not Found | `CHAT_NOT_FOUND` |
+| 서버 내부 오류 | 500 Internal Server Error | `INTERNAL_SERVER_ERROR` |
 
 ### 처리 규칙
 
-1. JWT를 통해 요청자의 인증 여부와 상담원 권한을 확인한다.
+1. JWT로 로그인 여부를 확인한다. 역할(CUSTOMER·AGENT)은 따로 막지 않고, 상담 참여자인지로 판단한다.
 2. `chatId`에 해당하는 `consultation` 데이터를 조회한다.
-3. 상담 상세 정보 조회 시 상담원 본인에게 배정된 상담인지 확인한다.
-4. 상담 상태는 ERD와 정책정의서의 `AI_CHAT`, `QUEUED`, `IN_PROGRESS`, `CLOSED`, `TERMINATED` 값을 사용한다.
-5. 상담 메시지 목록은 이 API에서 반환하지 않고 API-004를 통해 조회한다.
-6. 조회 요청은 상담 상태나 상담 내용을 변경하지 않는다.
+3. 요청자가 그 상담의 고객(`customer_id`)이거나 수락한 상담원(`agent_id`)일 때만 응답한다 (NFR-004).
+4. 상태와 상관없이 조회할 수 있다 (종료된 상담도 결과 확인·재연결 판단에 쓴다).
+5. `warningCount`·`closeThreshold`는 상담에 저장된 정책 기준이라 MOD-05 경고 내역의 값과 같다.
+6. 상담 메시지 목록은 이 API에서 반환하지 않고 API-004를 통해 조회한다.
+7. 조회 요청은 상담 상태나 상담 내용을 변경하지 않는다.
 
 ### 팀 확인 필요 사항
 
@@ -335,17 +351,17 @@
 | 기능 | 상담 메시지 내역 조회 |
 | Method | GET |
 | URL | /api/chats/{chatId}/messages |
-| 사용 화면 | 상담원 콘솔 - 실시간 상담 채팅 화면 |
-| 호출 시점 | 상담원이 상담 채팅 화면에 진입하여 기존 메시지 내역을 불러올 때 |
-| 인증 필요 | 예 (AGENT) |
-| 관련 요구사항 | 상담 메시지 조회 관련 REQ 번호 확인 필요 |
-| 설명 | 특정 상담에 저장된 메시지 내역을 조회한다. 고객과 상담원의 메시지를 확인할 수 있으며, 폭언으로 판정된 메시지는 마스킹된 내용을 반환한다. 실시간 메시지 송수신은 API-005 WebSocket에서 처리한다. |
+| 사용 화면 | 상담원 실시간 상담 화면, 고객 실시간 채팅 화면 |
+| 호출 시점 | 채팅 화면에 들어올 때, WebSocket이 다시 연결될 때 (끊긴 동안의 메시지 복구) |
+| 인증 필요 | 예 (해당 상담의 CUSTOMER 또는 수락한 AGENT) |
+| 관련 요구사항 | NFR-004 (상담 접근 제한), NFR-005 (원문 비공개), NFR-008 (재연결 시 이력 복구) |
+| 설명 | 특정 상담에 저장된 메시지 내역을 조회한다. 그 상담의 고객이나 수락한 상담원만 조회할 수 있으며, 폭언으로 판정된 메시지는 마스킹된 내용을 반환한다. 실시간 메시지 송수신은 API-005 WebSocket에서 처리한다. |
 
 ### Request Header
 
 | 이름 | 값 | 필수 | 설명 |
 | --- | --- | --- | --- |
-| Authorization | Bearer {accessToken} | Y | 상담원 계정 JWT |
+| Authorization | Bearer {accessToken} | Y | 고객 또는 상담원 계정 JWT |
 | Content-Type | application/json | N | GET 요청으로 별도 Body 없음 |
 
 ### Path Variable
@@ -360,12 +376,12 @@
 
 ### Response Body
 
-아래는 ERD의 `message` 테이블을 기준으로 작성한 응답 예시다. 공통 응답 형식과 실제 DTO 구성은 팀 확인이 필요하다.
+구현(`ChatHistoryResponseDTO`) 기준이다. AI 상담 단계의 고객·AI 메시지도 함께 온다 (`senderType`으로 구분).
 
 ```json
 {
   "success": true,
-  "message": "상담 메시지 내역 조회에 성공했습니다.",
+  "message": "조회되었습니다.",
   "data": [
     {
       "messageId": 1001,
@@ -405,8 +421,8 @@
 | data | Array | Y | 상담 메시지 목록 |
 | messageId | Long | Y | 메시지 고유 번호 |
 | consultationId | Long | Y | 상담 고유 번호 |
-| senderId | Long | Y | 발신자 회원 번호 |
-| senderType | String | Y | 발신자 유형 |
+| senderId | Long | N | 발신자 회원 번호. AI·시스템 메시지는 NULL |
+| senderType | String | Y | 발신자 유형 (`CUSTOMER`, `AGENT`, `AI`, `SYSTEM`) |
 | content | String | Y | 메시지 내용. 폭언인 경우 마스킹된 내용 |
 | abuseStatus | String | N | 폭언 판정 결과 (`NORMAL`, `ABUSIVE`) |
 | createdAt | LocalDateTime | Y | 메시지 생성 시각 |
@@ -417,30 +433,29 @@
 | --- | --- |
 | 200 OK | 상담 메시지 내역 조회 성공 |
 | 400 Bad Request | 상담 번호 형식 오류 |
-| 401 Unauthorized | 인증되지 않은 사용자 |
-| 403 Forbidden | 상담원 권한이 없거나 해당 상담에 접근할 권한이 없음 |
-| 404 Not Found | 해당 상담이 존재하지 않음 |
+| 401 Unauthorized | 인증되지 않은 사용자 (`UNAUTHORIZED`) |
+| 403 Forbidden | 해당 상담의 고객·수락한 상담원이 아님 (`CHAT_ACCESS_DENIED`) |
+| 404 Not Found | 해당 상담이 존재하지 않음 (`CHAT_NOT_FOUND`) |
 | 500 Internal Server Error | 서버 내부 오류 |
 
 ### 예외 상황
 
-| 상황 | 응답 코드 | 메시지 |
+| 상황 | 응답 코드 | errorCode |
 | --- | --- | --- |
-| 상담 번호 형식이 올바르지 않음 | 400 Bad Request | 상담 번호를 확인해주세요. |
-| JWT 누락 또는 유효하지 않음 | 401 Unauthorized | 로그인이 필요합니다. |
-| 상담원 권한이 없는 사용자 | 403 Forbidden | 접근 권한이 없습니다. |
-| 다른 상담원에게 배정된 상담에 접근함 | 403 Forbidden | 해당 상담에 접근할 권한이 없습니다. |
-| 상담 번호에 해당하는 상담이 없음 | 404 Not Found | 상담을 찾을 수 없습니다. |
+| 상담 번호 형식이 올바르지 않음 | 400 Bad Request | `INVALID_INPUT` |
+| JWT 누락 또는 유효하지 않음 | 401 Unauthorized | `UNAUTHORIZED` |
+| 해당 상담의 고객도, 수락한 상담원도 아님 (다른 상담원·다른 고객) | 403 Forbidden | `CHAT_ACCESS_DENIED` |
+| 상담 번호에 해당하는 상담이 없음 | 404 Not Found | `CHAT_NOT_FOUND` |
 | 조회할 메시지가 없음 | 200 OK | 빈 배열 반환 |
-| 서버 내부 오류 | 500 Internal Server Error | 서버 오류가 발생했습니다. |
+| 서버 내부 오류 | 500 Internal Server Error | `INTERNAL_SERVER_ERROR` |
 
 ### 처리 규칙
 
-1. JWT를 통해 상담원 인증 및 권한을 확인한다.
+1. JWT로 로그인 여부를 확인한다. 역할(CUSTOMER·AGENT)은 따로 막지 않고, 상담 참여자인지로 판단한다.
 2. `chatId`에 해당하는 상담이 존재하는지 확인한다.
-3. 요청한 상담에 접근할 권한이 있는지 확인한다.
+3. 요청자가 그 상담의 고객이거나 수락한 상담원일 때만 응답한다 (NFR-004).
 4. `message.consultation_id`가 요청한 `chatId`와 일치하는 메시지를 조회한다.
-5. 메시지는 `created_at` 기준 오래된 순서부터 반환한다.
+5. 메시지는 `created_at` 오름차순, 같은 시각이면 `message_id` 오름차순으로 반환한다 (PR #66 리뷰 반영).
 6. `abuse_status`가 `ABUSIVE`인 메시지는 마스킹된 `message.content`를 반환한다.
 7. 폭언 원문인 `abuse_log.original_content`는 일반 상담원 메시지 조회 응답에 포함하지 않는다.
 8. 메시지 조회는 상담 상태나 메시지 데이터를 변경하지 않는다.
@@ -605,6 +620,10 @@ WebSocket/STOMP 메시지 처리에는 REST API의 HTTP 상태 코드를 그대�
 11. 메시지 저장 기능과 연동한 뒤, 실제 전송 가능한 메시지를 해당 상담의 구독자에게 발행한다.
 12. 상담이 `CLOSED` 또는 `TERMINATED` 상태가 되면 추가 상담 메시지 전송을 차단한다.
 13. 폭언 누적에 따른 경고, 자동 종료 및 제재는 한수민 담당 기능과 연동한다.
+14. SEND는 `/app/chats/{chatId}/messages`로만 받는다. `/topic/**`, `/user/**`, `/queue/**` 등 브로커로 바로 가는 목적지로 보내면 거부하고 보낸 사람의 `/user/queue/errors`로 `ACCESS_DENIED`를 알린다 (가짜 메시지·가짜 `CONSULTATION_CLOSED` 방지, PR #80 리뷰).
+15. SEND 목적지가 맞아도 그 상담의 고객이나 수락한 상담원이 아니면 거부한다 (`CHAT_ACCESS_DENIED`, 없는 상담은 `CHAT_NOT_FOUND`).
+16. CONNECT 때 검증한 토큰과 만료 시각을 세션에 저장하고, SEND·SUBSCRIBE 때마다 로그아웃(블랙리스트)·만료를 다시 확인한다. 실패하면 `/user/queue/errors`로 `UNAUTHORIZED`를 알리고 그 프레임을 버린다. 클라이언트는 토큰을 재발급해 다시 연결한다.
+17. 본문이 JSON이 아니거나 형식이 맞지 않으면 `/user/queue/errors`로 `INVALID_INPUT`을 알린다.
 
 ### 팀 확인 필요 사항
 
@@ -633,18 +652,17 @@ WebSocket/STOMP 메시지 처리에는 REST API의 HTTP 상태 코드를 그대�
 | 기능 | 상담 종료 |
 | Method | PATCH |
 | URL | /api/chats/{chatId}/close |
-| 사용 화면 | 상담원 콘솔 - 실시간 상담 화면 |
-| 호출 시점 | 상담원이 상담 종료 버튼을 클릭할 때 또는 폭언 자동 종료 기능과 연동할 때 |
-| 인증 필요 | 예 (AGENT), 자동 종료 시 내부 서비스 권한 확인 필요 |
-| 관련 요구사항 | 상담 종료 및 폭언 자동 종료 관련 REQ 번호 확인 필요 |
-| 설명 | 진행 중인 상담을 종료하고 상담 상태 및 종료 정보를 기록한다. 일반 종료는 CLOSED, 폭언에 따른 강제 종료는 TERMINATED로 구분한다. |
+| 사용 화면 | 상담원 실시간 상담 화면, 고객 실시간 채팅 화면 |
+| 호출 시점 | 상담원 또는 고객이 상담 종료 버튼을 클릭할 때 |
+| 인증 필요 | 예 (수락한 AGENT 또는 해당 상담의 CUSTOMER) |
+| 관련 요구사항 | NFR-004 (상담 접근 제한), 체크리스트 E7 (종료된 상담 전송 차단) |
+| 설명 | 진행 중인 상담을 일반 종료(`CLOSED`)하고 종료 정보를 기록한다. 폭언 자동 종료(`TERMINATED`)는 이 API가 아니라 MOD-03 내부 처리에서 한다. |
 
 ### Request Header
 
 | 이름 | 값 | 필수 | 설명 |
 | --- | --- | --- | --- |
-| Authorization | Bearer {accessToken} | Y | 상담원 계정 JWT. 내부 자동 종료 호출 방식은 별도 확인 |
-| Content-Type | application/json | 조건부 | Request Body 사용 시 필요 |
+| Authorization | Bearer {accessToken} | Y | 수락한 상담원 또는 해당 상담 고객의 JWT |
 
 ### Path Variable
 
@@ -654,23 +672,14 @@ WebSocket/STOMP 메시지 처리에는 REST API의 HTTP 상태 코드를 그대�
 
 ### Request Body
 
-아래는 종료 사유를 전달하는 방식의 예시다. 실제 Request Body 구성은 팀에서 확정해야 한다.
+없음. 종료 주체(`closedBy`)와 사유(`closeReason`)는 서버가 정한다.
 
-```json
-{
-  "closeReason": "AGENT_CLOSED"
-}
-```
-
-| 필드 | 타입 | 필수 | 검증 규칙 및 설명 |
-| --- | --- | --- | --- |
-| closeReason | String | 확인 필요 | 상담 종료 사유. 허용 값은 정책정의서 기준으로 확정 필요 |
-
-※ ERD의 `close_reason` 컬럼은 `VARCHAR(20)`이며 NULL을 허용한다. `AGENT_CLOSED`는 예시 값으로, 확정된 코드가 아니다.
+- `closedBy`: 요청자가 수락한 상담원이면 `AGENT`, 상담 고객이면 `CUSTOMER`
+- `closeReason`: 이 API로 종료하면 항상 `NORMAL`
 
 ### Response Body
 
-아래는 ERD의 `consultation` 테이블을 기준으로 작성한 응답 예시다. 실제 공통 응답 형식은 팀 확인이 필요하다.
+구현(`ChatCloseResponseDTO`) 기준이다.
 
 ```json
 {
@@ -682,7 +691,7 @@ WebSocket/STOMP 메시지 처리에는 REST API의 HTTP 상태 코드를 그대�
     "agentId": 5,
     "closedAt": "2026-11-11T14:00:00",
     "closedBy": "AGENT",
-    "closeReason": "AGENT_CLOSED"
+    "closeReason": "NORMAL"
   }
 }
 ```
@@ -696,50 +705,42 @@ WebSocket/STOMP 메시지 처리에는 REST API의 HTTP 상태 코드를 그대�
 | consultationStatus | String | Y | 종료 후 상담 상태 (`CLOSED` 또는 `TERMINATED`) |
 | agentId | Long | N | 배정된 상담원 회원 번호 |
 | closedAt | LocalDateTime | Y | 상담 종료 시각 |
-| closedBy | String | N | 상담 종료 주체 |
-| closeReason | String | N | 상담 종료 사유 |
+| closedBy | String | N | 상담 종료 주체 (`AGENT`, `CUSTOMER`, `SYSTEM`) |
+| closeReason | String | N | 상담 종료 사유 (`NORMAL`, `ABUSE_AUTO`, `ABUSE_MANUAL`) |
 
 ### Status Code
 
 | 상태 코드 | 설명 |
 | --- | --- |
-| 200 OK | 상담 종료 성공 |
-| 400 Bad Request | 상담 번호 또는 종료 요청 값 오류 |
-| 401 Unauthorized | 인증되지 않은 사용자 |
-| 403 Forbidden | 상담 종료 권한 없음 |
-| 404 Not Found | 해당 상담이 존재하지 않음 |
-| 409 Conflict | 이미 종료되었거나 현재 종료할 수 없는 상담 |
+| 200 OK | 상담 종료 성공, 또는 이미 종료된 상담 (현재 종료 정보를 그대로 돌려준다) |
+| 400 Bad Request | 상담 번호 형식 오류 (`INVALID_INPUT`) |
+| 401 Unauthorized | 인증되지 않은 사용자 (`UNAUTHORIZED`) |
+| 403 Forbidden | 수락한 상담원·상담 고객이 아님 (`CHAT_ACCESS_DENIED`) |
+| 404 Not Found | 해당 상담이 존재하지 않음 (`CHAT_NOT_FOUND`) |
+| 409 Conflict | 아직 상담원과 상담 중이 아님 (`AI_CHAT`·`QUEUED`, `CHAT_NOT_ACTIVE`) |
 | 500 Internal Server Error | 서버 내부 오류 |
 
 ### 예외 상황
 
-| 상황 | 응답 코드 | 메시지 |
+| 상황 | 응답 코드 | errorCode |
 | --- | --- | --- |
-| 상담 번호 형식이 올바르지 않음 | 400 Bad Request | 상담 번호를 확인해주세요. |
-| 종료 사유가 허용되지 않은 값임 | 400 Bad Request | 종료 사유를 확인해주세요. |
-| JWT 누락 또는 유효하지 않음 | 401 Unauthorized | 로그인이 필요합니다. |
-| 상담 종료 권한이 없는 사용자 | 403 Forbidden | 상담을 종료할 권한이 없습니다. |
-| 다른 상담원에게 배정된 상담을 종료하려 함 | 403 Forbidden | 해당 상담에 접근할 권한이 없습니다. |
-| 해당 상담이 존재하지 않음 | 404 Not Found | 상담을 찾을 수 없습니다. |
-| 상담이 이미 CLOSED 상태임 | 409 Conflict | 이미 종료된 상담입니다. |
-| 상담이 이미 TERMINATED 상태임 | 409 Conflict | 이미 강제 종료된 상담입니다. |
-| 상담이 종료 가능한 상태가 아님 | 409 Conflict | 현재 종료할 수 없는 상담입니다. |
-| 서버 내부 오류 | 500 Internal Server Error | 서버 오류가 발생했습니다. |
+| 상담 번호 형식이 올바르지 않음 | 400 Bad Request | `INVALID_INPUT` |
+| JWT 누락 또는 유효하지 않음 | 401 Unauthorized | `UNAUTHORIZED` |
+| 수락한 상담원도, 상담 고객도 아님 (다른 상담원·다른 고객) | 403 Forbidden | `CHAT_ACCESS_DENIED` |
+| 해당 상담이 존재하지 않음 | 404 Not Found | `CHAT_NOT_FOUND` |
+| 상담이 `AI_CHAT`·`QUEUED` 상태임 (대기 취소는 CUS-04) | 409 Conflict | `CHAT_NOT_ACTIVE` |
+| 상담이 이미 `CLOSED`·`TERMINATED` 상태임 | 200 OK | 상태를 바꾸지 않고 현재 종료 정보를 돌려준다 |
+| 서버 내부 오류 | 500 Internal Server Error | `INTERNAL_SERVER_ERROR` |
 
 ### 처리 규칙
 
-1. 상담원은 본인에게 배정된 상담만 직접 종료할 수 있다.
-2. 상담원이 종료 버튼을 누르면 상담 상태와 종료 가능 여부를 확인한다.
-3. 정상적인 상담 종료 시 `consultation.status`를 `CLOSED`로 변경한다.
-4. 폭언에 따른 강제 종료 시 `consultation.status`를 `TERMINATED`로 변경한다.
-5. 종료 시 `consultation.closed_at`에 종료 시각을 기록한다.
-6. 종료 주체와 사유는 `consultation.closed_by`, `consultation.close_reason`에 기록한다.
-7. 이미 `CLOSED` 또는 `TERMINATED` 상태인 상담은 중복 종료하지 않는다.
-8. 종료된 상담에서는 고객과 상담원 간 추가 실시간 메시지 전송을 차단한다.
-9. 폭언에 따른 강제 종료 시 상담원에게 10분의 회복시간을 적용한다.
-10. 일반 종료에는 폭언 강제 종료에 따른 10분 회복시간을 자동 적용하지 않는다.
-11. 폭언 판정 및 자동 종료 조건은 한수민 담당 기능에서 처리한다.
-12. 종료 결과는 상담원과 고객 화면에 반영되어야 한다.
+1. 상담 행을 잠그고 조회한다 (MOD-03 폭언 종료·API-005 메시지 저장과 같은 잠금, 체크리스트 E7).
+2. 요청자가 수락한 상담원이면 `closedBy = AGENT`, 상담 고객이면 `closedBy = CUSTOMER`. 둘 다 아니면 403.
+3. `IN_PROGRESS` 상담을 `CLOSED`로 바꾸고 `closed_at`, `closed_by`, `close_reason = NORMAL`을 기록한다.
+4. 이미 `CLOSED`·`TERMINATED`인 상담은 다시 종료하지 않고 200으로 현재 종료 정보를 돌려준다 (두 사람이 동시에 종료해도 안전).
+5. 이번 요청으로 실제 종료됐을 때만, 커밋 뒤 `/topic/chats/{chatId}`로 `CONSULTATION_CLOSED`를 발행한다.
+6. 종료된 상담에서는 고객과 상담원 간 추가 실시간 메시지 전송을 차단한다 (`CHAT_CLOSED`).
+7. 폭언 강제 종료(`TERMINATED`)와 10분 회복 시간은 MOD-03에서 처리한다. 일반 종료에는 회복 시간을 적용하지 않는다.
 
 ### 팀 확인 필요 사항
 
