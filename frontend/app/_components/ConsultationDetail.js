@@ -54,7 +54,7 @@ export default function ConsultationDetail({ id, backHref, backLabel, showSancti
               <span className={`badge ${badge.tone}`}>{badge.label}</span>
             </div>
             <div className="kv"><span>고객</span><span>{c.customerLoginId ?? "—"}</span></div>
-            <div className="kv"><span>상담원</span><span>{c.agentName ?? "— (AI 응대)"}</span></div>
+            <div className="kv"><span>상담원</span><span>{c.agentName ?? "AI 응대"}</span></div>
             <div className="kv"><span>시작</span><span>{formatDateTime(c.startedAt)}</span></div>
             <div className="kv"><span>종료</span><span>{formatDateTime(c.closedAt)}</span></div>
             <div className="kv"><span>종료 사유</span><span>{closeReasonLabel(c.closeReason, c.closedBy)}</span></div>

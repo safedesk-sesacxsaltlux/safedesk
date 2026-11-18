@@ -2,11 +2,11 @@
 
 // 관리자 제재 목록 (API-ADM-04 GET /api/admin/sanctions)
 
-import Link from "next/link";
 import { useState } from "react";
 import { useApiGet } from "../../_lib/useApiGet";
 import { formatDate } from "../../_lib/format";
 import Pager from "../../_components/Pager";
+import RowLink from "../../_components/RowLink";
 
 const EMPTY_FILTER = { keyword: "", status: "ALL", durationDays: "ALL" };
 
@@ -94,7 +94,7 @@ export default function SanctionsView() {
                         <td>{s.durationDays}일 정지</td>
                         <td>{formatDate(s.startsAt)} ~ {formatDate(s.endsAt)}</td>
                         <td><span className={`badge ${badge.tone}`}>{badge.label}</span></td>
-                        <td><Link href={`/admin/sanctions/${s.sanctionId}`}>상세</Link></td>
+                        <td style={{ textAlign: "center" }}><RowLink href={`/admin/sanctions/${s.sanctionId}`} label="제재 상세" /></td>
                       </tr>
                     );
                   })}

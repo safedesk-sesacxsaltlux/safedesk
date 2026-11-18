@@ -2,11 +2,11 @@
 
 // 관리자 전체 상담 이력 (HIS-05 GET /api/admin/consultations)
 
-import Link from "next/link";
 import { useState } from "react";
 import { useApiGet } from "../../_lib/useApiGet";
 import { formatDateTime, statusBadge } from "../../_lib/format";
 import Pager from "../../_components/Pager";
+import RowLink from "../../_components/RowLink";
 
 const EMPTY_FILTER = { from: "", to: "", status: "ALL", handledBy: "ALL", keyword: "" };
 const ERROR_MESSAGE = { INVALID_PERIOD: "조회 기간을 다시 선택해주세요." };
@@ -96,7 +96,7 @@ export default function AdminHistoryView() {
                         <td>{r.handledBy === "AI" ? "AI 응대" : "상담원 연결"}</td>
                         <td style={r.abuseCount ? { color: "var(--warn)", fontWeight: 700 } : undefined}>{r.abuseCount}</td>
                         <td><span className={`badge ${badge.tone}`}>{badge.label}</span></td>
-                        <td><Link href={`/admin/history/${r.consultationId}`}>상세</Link></td>
+                        <td style={{ textAlign: "center" }}><RowLink href={`/admin/history/${r.consultationId}`} label={`${r.consultationNo} 상세`} /></td>
                       </tr>
                     );
                   })}

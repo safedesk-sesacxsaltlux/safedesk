@@ -18,7 +18,7 @@ const CLOSE_TYPES = [
   { key: "aiClosed", label: "AI 응대 종료" },
   { key: "agentClosed", label: "상담원 종료" },
   { key: "queueCanceled", label: "대기 중 취소" },
-  { key: "terminated", label: "강제 종료 (TERMINATED)" },
+  { key: "terminated", label: "강제 종료 " },
 ];
 
 // 정지 상태 배지 (상태는 서버가 해제·종료 시각으로 계산)
@@ -69,9 +69,9 @@ export default function DashboardView() {
         <div className="stat"><span>전체 상담</span><b>{cards ? cards.totalConsultationCount : "—"}</b></div>
         <div className="stat"><span>AI 단독 해결</span><b>{cards ? formatRate(cards.aiOnlyResolvedRate) : "—"}</b></div>
         <div className="stat"><span>폭언 감지</span><b style={{ color: "var(--warn)" }}>{cards ? cards.abuseDetectedCount : "—"}</b></div>
-        <div className="stat"><span>자동 종료</span><b style={{ color: "var(--danger)" }}>{cards ? cards.autoTerminatedCount : "—"}</b></div>
+        <div className="stat"><span>자동 종료</span><b>{cards ? cards.autoTerminatedCount : "—"}</b></div>
         <div className="stat"><span>신규 제재</span><b style={{ color: "var(--danger)" }}>{cards ? `${cards.newSanctionCount}건` : "—"}</b></div>
-        <div className="stat"><span>현재 이용정지</span><b>{cards ? `${cards.currentSuspendedCustomerCount}명` : "—"}</b></div>
+        <div className="stat"><span>현재 이용정지</span><b style={{ color: "var(--danger)" }}>{cards ? `${cards.currentSuspendedCustomerCount}명` : "—"}</b></div>
       </div>
 
       <div className="row">
