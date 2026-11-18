@@ -25,9 +25,26 @@ export function openChatSocket(chatId, { onEvent, onError, onConnected, onDiscon
       const payload = parse(frame.body);
       if (payload) onEvent?.(payload);
     });
-    client.subscribe("/user/queue/errors", (frame) => {
+    client.subscribe("/user/queue/errors", async (frame) => {
       const payload = parse(frame.body);
-      if (payload) onError?.(payload);
+      if (!payload) return;
+      if (payload.errorCode === "UNAUTHORIZED") {
+        // CONNECT 뒤에 토큰이 만료되거나 로그아웃되면 서버가 SEND·SUBSCRIBE를 거부한다.
+        // 재발급되면 새 토큰으로 다시 연결하고, 안 되면 로그인 화면으로 보낸다.
+        const refreshed = await refreshAccessToken();
+        if (refreshed === "ok") {
+          await client.deactivate();
+          client.activate();
+          onError?.({ ...payload, errorCode: "RECONNECTING", message: "연결을 새로 맺는 중입니다. 방금 메시지는 다시 보내주세요." });
+          return;
+        }
+        if (refreshed === "error") {
+          onError?.({ ...payload, errorCode: "RECONNECTING", message: "서버에 연결하지 못했습니다. 잠시 후 다시 보내주세요." });
+          return;
+        }
+        client.deactivate();
+      }
+      onError?.(payload);
     });
     onConnected?.();
   };

@@ -21,8 +21,13 @@ import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
+import java.nio.charset.StandardCharsets;
 import java.security.Principal;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -44,11 +49,20 @@ class StompAuthChannelInterceptorTest {
     private final TokenBlacklist tokenBlacklist = new TokenBlacklist();
     private final ConsultationRepository consultationRepository = mock(ConsultationRepository.class);
     private final SimpMessageSendingOperations messagingTemplate = mock(SimpMessageSendingOperations.class);
-    private final StompAuthChannelInterceptor interceptor =
-        new StompAuthChannelInterceptor(jwtProvider, tokenBlacklist, consultationRepository, providerOf(messagingTemplate));
+    private final MutableClock clock = new MutableClock(Instant.now());
+    private final StompAuthChannelInterceptor interceptor = new StompAuthChannelInterceptor(
+        jwtProvider, tokenBlacklist, consultationRepository, providerOf(messagingTemplate), clock);
     private final MessageChannel channel = mock(MessageChannel.class);
 
     private static final String SESSION_ID = "session-1";
+    // 한 WebSocket 연결의 세션 속성. 실제로는 Spring 이 프레임마다 같은 Map 을 넣어 준다
+    private final Map<String, Object> session = new HashMap<>();
+
+    StompAuthChannelInterceptorTest() {
+        // 기본은 CONNECT 를 거친 연결 (아직 유효한 토큰이 세션에 있음)
+        session.put(StompAuthChannelInterceptor.SESSION_TOKEN, jwtProvider.createToken(100L, "CUSTOMER"));
+        session.put(StompAuthChannelInterceptor.SESSION_EXPIRES_AT, clock.instant().plusSeconds(3600));
+    }
 
     // ===== CONNECT =====
 
@@ -63,6 +77,18 @@ class StompAuthChannelInterceptorTest {
         assertThat(user).isInstanceOf(UsernamePasswordAuthenticationToken.class);
         assertThat(((UsernamePasswordAuthenticationToken) user).getPrincipal()).isEqualTo(100L);
         assertThat(user.getName()).isEqualTo("100");
+    }
+
+    @Test
+    @DisplayName("CONNECT 때 검증한 토큰과 만료 시각을 세션에 저장한다")
+    void connectStoresTokenInSession() {
+        session.clear();
+        String token = jwtProvider.createToken(100L, "CUSTOMER");
+
+        interceptor.preSend(connect("Bearer " + token), channel);
+
+        assertThat(session.get(StompAuthChannelInterceptor.SESSION_TOKEN)).isEqualTo(token);
+        assertThat(session.get(StompAuthChannelInterceptor.SESSION_EXPIRES_AT)).isEqualTo(jwtProvider.validate(token).expiresAt());
     }
 
     @Test
@@ -152,6 +178,61 @@ class StompAuthChannelInterceptorTest {
         assertThat(interceptor.preSend(noDestination, channel)).isNull();
     }
 
+    // ===== CONNECT 이후 토큰 재확인 =====
+
+    @Test
+    @DisplayName("CONNECT 뒤 로그아웃하면 그 연결로 SEND 할 수 없다 → 버리고 오류 큐로 UNAUTHORIZED")
+    void sendAfterLogout() {
+        givenConsultation(1L, 100L, 10L);
+        String token = jwtProvider.createToken(100L, "CUSTOMER");
+        interceptor.preSend(connect("Bearer " + token), channel);
+
+        tokenBlacklist.add(token, jwtProvider.validate(token).expiresAt());   // 로그아웃 (API-AUTH-04)
+
+        assertThat(interceptor.preSend(frame(StompCommand.SEND, "/app/chats/1/messages", user(100L)), channel)).isNull();
+        assertThat(notifiedErrorCode("100")).isEqualTo("UNAUTHORIZED");
+    }
+
+    @Test
+    @DisplayName("CONNECT 뒤 토큰이 만료되면 그 연결로 SEND 할 수 없다 → 버리고 오류 큐로 UNAUTHORIZED")
+    void sendAfterExpiry() {
+        givenConsultation(1L, 100L, 10L);
+        interceptor.preSend(connect("Bearer " + jwtProvider.createToken(100L, "CUSTOMER")), channel);
+        Message<byte[]> beforeExpiry = frame(StompCommand.SEND, "/app/chats/1/messages", user(100L));
+        assertThat(interceptor.preSend(beforeExpiry, channel)).isSameAs(beforeExpiry);
+
+        clock.advanceSeconds(3601);   // jwt.expiration-seconds(3600) 경과
+
+        assertThat(interceptor.preSend(frame(StompCommand.SEND, "/app/chats/1/messages", user(100L)), channel)).isNull();
+        assertThat(notifiedErrorCode("100")).isEqualTo("UNAUTHORIZED");
+    }
+
+    @Test
+    @DisplayName("CONNECT 뒤 로그아웃·만료되면 새 구독도 할 수 없다 → 버리고 오류 큐로 UNAUTHORIZED")
+    void subscribeAfterLogoutOrExpiry() {
+        givenConsultation(1L, 100L, 10L);
+        String token = jwtProvider.createToken(100L, "CUSTOMER");
+        interceptor.preSend(connect("Bearer " + token), channel);
+        tokenBlacklist.add(token, jwtProvider.validate(token).expiresAt());
+
+        assertThat(interceptor.preSend(frame(StompCommand.SUBSCRIBE, "/topic/chats/1", user(100L)), channel)).isNull();
+        assertThat(notifiedErrorCode("100")).isEqualTo("UNAUTHORIZED");
+
+        session.put(StompAuthChannelInterceptor.SESSION_TOKEN, jwtProvider.createToken(100L, "CUSTOMER"));
+        session.put(StompAuthChannelInterceptor.SESSION_EXPIRES_AT, clock.instant().minusSeconds(1));
+        assertThat(interceptor.preSend(frame(StompCommand.SUBSCRIBE, "/topic/chats/1", user(100L)), channel)).isNull();
+    }
+
+    @Test
+    @DisplayName("세션에 검증한 토큰이 없으면 SEND 할 수 없다")
+    void sendWithoutSessionToken() {
+        givenConsultation(1L, 100L, 10L);
+        session.clear();
+
+        assertThat(interceptor.preSend(frame(StompCommand.SEND, "/app/chats/1/messages", user(100L)), channel)).isNull();
+        assertThat(notifiedErrorCode("100")).isEqualTo("UNAUTHORIZED");
+    }
+
     // ===== SUBSCRIBE =====
 
     @Test
@@ -232,20 +313,22 @@ class StompAuthChannelInterceptorTest {
         return new UsernamePasswordAuthenticationToken(memberId, null, List.of(new SimpleGrantedAuthority("ROLE_CUSTOMER")));
     }
 
-    private static Message<byte[]> connect(String authorization) {
+    private Message<byte[]> connect(String authorization) {
         StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.CONNECT);
         if (authorization != null) {
             accessor.addNativeHeader("Authorization", authorization);
         }
+        accessor.setSessionId(SESSION_ID);
+        accessor.setSessionAttributes(session);
         accessor.setLeaveMutable(true);
         return MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
     }
 
-    private static Message<byte[]> frame(StompCommand command, String destination, Principal user) {
+    private Message<byte[]> frame(StompCommand command, String destination, Principal user) {
         return frame(command, destination, user, "");
     }
 
-    private static Message<byte[]> frame(StompCommand command, String destination, Principal user, String body) {
+    private Message<byte[]> frame(StompCommand command, String destination, Principal user, String body) {
         StompHeaderAccessor accessor = StompHeaderAccessor.create(command);
         if (destination != null) {
             accessor.setDestination(destination);
@@ -254,7 +337,36 @@ class StompAuthChannelInterceptorTest {
             accessor.setUser(user);
         }
         accessor.setSessionId(SESSION_ID);
+        accessor.setSessionAttributes(session);
         accessor.setLeaveMutable(true);
-        return MessageBuilder.createMessage(body.getBytes(java.nio.charset.StandardCharsets.UTF_8), accessor.getMessageHeaders());
+        return MessageBuilder.createMessage(body.getBytes(StandardCharsets.UTF_8), accessor.getMessageHeaders());
+    }
+
+    // 만료 테스트용 시계
+    private static final class MutableClock extends Clock {
+        private Instant now;
+
+        MutableClock(Instant now) {
+            this.now = now;
+        }
+
+        void advanceSeconds(long seconds) {
+            now = now.plusSeconds(seconds);
+        }
+
+        @Override
+        public ZoneId getZone() {
+            return ZoneOffset.UTC;
+        }
+
+        @Override
+        public Clock withZone(ZoneId zone) {
+            return this;
+        }
+
+        @Override
+        public Instant instant() {
+            return now;
+        }
     }
 }
