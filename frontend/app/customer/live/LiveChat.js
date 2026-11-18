@@ -240,7 +240,7 @@ function LiveChatContent({ chatId }) {
                       {m.original ?? m.content}
                     </div>
                     <span className="small muted" style={{ fontSize: 12 }}>
-                      부적절한 표현 감지 · 상담원에게는 가려진 상태로 전달됨
+                      부적절한 표현 감지
                     </span>
                   </div>
                 );

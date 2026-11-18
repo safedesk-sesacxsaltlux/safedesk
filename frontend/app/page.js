@@ -33,7 +33,7 @@ export default function Home() {
           <Link
             href="/signup"
             className="btn btn-primary"
-            style={{ minHeight: 44, fontWeight: 500 }}
+            style={{ minHeight: 44, fontWeight: 500, color: "#fff" }}
           >
             회원가입
           </Link>
@@ -67,10 +67,6 @@ export default function Home() {
           </div>
         ))}
       </section>
-
-      <footer className="footer">
-        <div className="container">SafeDesk · AICC 채팅 상담 플랫폼 (가칭)</div>
-      </footer>
     </>
   );
 }

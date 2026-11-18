@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import Icon from "../../_components/Icon";
 import { AgentHeader } from "../../_components/Headers";
-import { callApi, formatSeconds, formatTime } from "../_lib/api";
+import { callApi, formatTime } from "../_lib/api";
 import { openChatSocket } from "../_lib/chatSocket";
 
 const QUICK_REPLIES = [
@@ -75,7 +75,6 @@ function AgentChatRoom({ chatId }) {
   const [input, setInput] = useState("");
   const [closing, setClosing] = useState(false);
   const [closeError, setCloseError] = useState("");
-  const [now, setNow] = useState(() => Date.now());
 
   const socketRef = useRef(null);
   const lastMessageIdRef = useRef(0); // 안내(경고·종료)를 어느 메시지 뒤에 둘지 정할 때 쓴다
@@ -202,12 +201,6 @@ function AgentChatRoom({ chatId }) {
     };
   }, [validChatId, loadState, goLogin]);
 
-  // 경과 시간
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
-
   useEffect(() => {
     const max = messages.reduce((acc, m) => Math.max(acc, m.messageId), 0);
     lastMessageIdRef.current = Math.max(lastMessageIdRef.current, max);
@@ -255,9 +248,6 @@ function AgentChatRoom({ chatId }) {
     setStatus(result.data.consultationStatus);
   }
 
-  const acceptedAt = detail?.acceptedAt ? new Date(detail.acceptedAt).getTime() : null;
-  const closedAt = detail?.closedAt ? new Date(detail.closedAt).getTime() : null;
-  const elapsed = acceptedAt ? Math.floor(((ended && closedAt ? closedAt : now) - acceptedAt) / 1000) : 0;
   const threshold = detail?.closeThreshold ?? null;
   const warningCount = detail?.warningCount ?? 0;
 
@@ -288,10 +278,6 @@ function AgentChatRoom({ chatId }) {
               <div className="stack">
                 <span className="bold" style={{ fontSize: 16 }}>
                   {detail ? `${detail.customerName ?? `고객 ${detail.customerId}`} 님과 상담 중` : "상담 불러오는 중"}
-                </span>
-                <span className="muted" style={{ fontSize: 12 }}>
-                  상담번호 C-{String(validChatId ?? "").padStart(6, "0")} · {status ?? "-"} · 경과{" "}
-                  {formatSeconds(elapsed)} · {connected ? "연결됨" : "연결 중..."}
                 </span>
               </div>
               {active ? (
@@ -338,7 +324,7 @@ function AgentChatRoom({ chatId }) {
                   return (
                     <div key={item.key} className="alert alert-danger" style={{ padding: "10px 14px" }}>
                       <Icon name="alert" size={18} />
-                      <span>고객의 반복 폭언으로 상담이 자동 종료되었습니다 (TERMINATED).</span>
+                      <span>고객의 반복 폭언으로 상담이 자동 종료되었습니다.</span>
                     </div>
                   );
                 return (
@@ -413,7 +399,7 @@ function AgentChatRoom({ chatId }) {
               <div className="kv" style={{ padding: 0, border: 0 }}>
                 <span>고객</span>
                 <span>
-                  {detail ? `${detail.customerName ?? "-"} (ID ${detail.customerId})` : "-"}
+                  {detail?.customerName ?? "-"}
                 </span>
               </div>
               <div className="kv" style={{ padding: 0, border: 0 }}>
