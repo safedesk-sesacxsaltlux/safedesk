@@ -374,6 +374,22 @@ tr.hl td { background: #f3f6fd; }
 }
 .pager button.on { background: var(--text); color: #fff; border-color: var(--text); }
 
+/* 표 행 끝의 상세 이동 버튼 (›) */
+.row-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+  vertical-align: middle;
+}
+.row-link:hover { background: #f7f8fa; }
+
 /* ---------- landing ---------- */
 .hero {
   padding-top: 88px;

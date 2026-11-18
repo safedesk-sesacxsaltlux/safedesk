@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { AdminHeader } from "../../_components/Headers";
+import RowLink from "../../_components/RowLink";
 
 export const metadata = { title: "제재 관리 · SafeDesk 관리자" };
 
@@ -67,7 +67,7 @@ export default function SanctionsPage() {
                     <td>{r.type}</td>
                     <td>MM.DD ~ MM.DD</td>
                     <td><span className={`badge ${r.tone}`}>{r.status}</span></td>
-                    <td><Link href="/admin/sanctions/1">상세</Link></td>
+                    <td style={{ textAlign: "center" }}><RowLink href="/admin/sanctions/1" label="제재 상세" /></td>
                   </tr>
                 ))}
               </tbody>
